@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufReader, Read};
-use crate::instruction::Instruction;
+use crate::instruction::{Instruction, MemAddress, MovOperand};
 use crate::memory::LinearMemory;
 use crate::register::Register;
 
@@ -34,15 +34,60 @@ impl Machine {
 
         match instruction {
             Instruction::Noop => {},
-            Instruction::Mov8(register, val) => self.set_register(register, val as u16),
-            Instruction::Mov16(register, val) => self.set_register(register, val),
+            Instruction::MovImm8(register, val) => self.set_register(register, val as u16),
+            Instruction::MovImm16(register, val) => self.set_register(register, val),
+            Instruction::Mov(dest, src) => {
+
+                match dest {
+                    MovOperand::Register(dest_reg) => {
+                        match src {
+                            MovOperand::Register(src_reg) => self.set_register(dest_reg, self.get_register(src_reg)),
+                            MovOperand::Memory(mem_addr) => {
+                                let ptr = self.get_ptr_from_mem_address(mem_addr);
+                                if !dest_reg.is_8bit() {
+                                    let low = self.memory.data[ptr] as u16;
+                                    let high = (self.memory.data[ptr + 1] as u16) << 8;
+                                    self.set_register(dest_reg, low | high);
+                                } else {
+                                    self.set_register(dest_reg, self.memory.data[ptr] as u16);
+                                }
+                            }
+                        }
+                    }
+                    MovOperand::Memory(mem_addr) => {
+
+                        match src {
+                            MovOperand::Register(src_reg) => {
+                                let ptr = self.get_ptr_from_mem_address(mem_addr);
+                                let reg_val = self.get_register(src_reg);
+
+                                self.memory.data[ptr] = reg_val as u8;
+                                if !src_reg.is_8bit() {
+                                    self.memory.data[ptr + 1] = (reg_val >> 8) as u8;
+                                }
+                            }
+                            MovOperand::Memory(_) => unreachable!()
+                        }
+                    }
+                }
+            },
         }
 
         self.set_register(Register::IP, self.get_register(Register::IP) + instruction.get_instr_size());
     }
 
-    pub fn memory(&self) -> &LinearMemory {
-        &self.memory
+    pub fn get_ptr_from_mem_address(&self, mem_addr: MemAddress) -> usize {
+        let ptr = mem_addr.displacement + if let Some(base_reg) = mem_addr.base {
+            self.get_register(base_reg)
+        } else {
+            0
+        } + if let Some(index_reg) = mem_addr.index {
+            self.get_register(index_reg)
+        } else {
+            0
+        };
+
+        ptr as usize
     }
 
     pub fn get_register(&self, register: Register) -> u16 {
@@ -59,9 +104,9 @@ impl Machine {
                     BH => BX,
                     CH => CX,
                     DH => DX,
-                    _ => panic!("Not possible")
+                    _ => unreachable!()
                 };
-                (self.get_register(base_reg) & 0xFF00) >> 8
+                (self.registers[base_reg as usize] & 0xFF00) >> 8
             },
 
             AL | BL | CL | DL => {
@@ -70,9 +115,9 @@ impl Machine {
                     BL => BX,
                     CL => CX,
                     DL => DX,
-                    _ => panic!("Not possible")
+                    _ => unreachable!()
                 };
-                self.get_register(base_reg) & 0x00FF
+                self.registers[base_reg as usize] & 0x00FF
             }
         }
     }
@@ -91,9 +136,9 @@ impl Machine {
                     BH => BX,
                     CH => CX,
                     DH => DX,
-                    _ => panic!("Not possible")
+                    _ => unreachable!()
                 };
-                self.set_register(base_reg, (self.get_register(base_reg) & 0x00FF) | ((value & 0x00FF) << 8));
+                self.registers[base_reg as usize] = (self.get_register(base_reg) & 0x00FF) | ((value & 0x00FF) << 8);
             }
 
             AL | BL | CL | DL => {
@@ -102,11 +147,19 @@ impl Machine {
                     BL => BX,
                     CL => CX,
                     DL => DX,
-                    _ => panic!("Not possible")
+                    _ => unreachable!()
                 };
-                self.set_register(base_reg, (self.get_register(base_reg) & 0xFF00) | (value & 0x00FF));
+                self.registers[base_reg as usize] = (self.get_register(base_reg) & 0xFF00) | (value & 0x00FF);
             }
         }
+    }
+
+    pub fn memory(&self) -> &LinearMemory {
+        &self.memory
+    }
+
+    pub fn memory_mut(&mut self) -> &mut LinearMemory {
+        &mut self.memory
     }
 }
 

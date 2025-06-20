@@ -33,6 +33,12 @@ pub enum Register {
 }
 
 impl Register {
+
+    pub fn is_8bit(&self) -> bool {
+        matches!(self, Register::AL | Register::AH | Register::BL | Register::BH |
+                   Register::CL | Register::CH | Register::DL | Register::DH)
+    }
+
     pub fn from_register_code(code: u8, bits_8: bool) -> Result<Self, String> {
         let code = if bits_8 {
             code + 0x80
