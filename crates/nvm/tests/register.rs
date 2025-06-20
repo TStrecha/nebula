@@ -23,3 +23,13 @@ fn test_16bit_register_from_code() {
     assert_eq!(Register::from_register_code(6, false), Ok(Register::SI));
     assert_eq!(Register::from_register_code(7, false), Ok(Register::DI));
 }
+
+#[test]
+fn test_8bit_register_from_invalid_code() {
+    assert!(Register::from_register_code(0x0F, true).is_err());
+}
+
+#[test]
+fn test_16bit_register_from_invalid_code() {
+    assert!(Register::from_register_code(0xFF, false).is_err());
+}

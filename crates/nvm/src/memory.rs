@@ -1,5 +1,5 @@
 
-pub const MEMORY_SIZE: usize = 1024;
+pub const MEMORY_SIZE: usize = 16 * 1024;
 
 pub struct LinearMemory {
     pub data: [u8; MEMORY_SIZE]
