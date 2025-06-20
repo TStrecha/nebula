@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufReader, Read};
-use crate::instruction::{Instruction, MemAddress, MovOperand};
+use crate::instruction::{Instruction, MemAddress, MovMemOperand, MovOperand};
 use crate::memory::LinearMemory;
 use crate::register::Register;
 
@@ -69,6 +69,31 @@ impl Machine {
                             MovOperand::Memory(_) => unreachable!()
                         }
                     }
+                }
+            },
+            Instruction::MovAccMem(dest, src) => {
+                match (dest, src) {
+                    (MovMemOperand::Register(reg), MovMemOperand::MemoryPtr(ptr)) => {
+                        if reg.is_8bit() {
+                            self.set_register(reg, self.memory.data[ptr as usize] as u16);
+                        } else {
+                            let val = ((self.memory.data[ptr as usize + 1] as u16) << 8)
+                                | self.memory.data[ptr as usize] as u16;
+                            self.set_register(reg, val);
+                        }
+                    }
+                    (MovMemOperand::MemoryPtr(ptr), MovMemOperand::Register(reg)) => {
+                        if reg.is_8bit() {
+                            self.memory.data[ptr as usize] = self.get_register(reg) as u8;
+                        } else {
+                            let reg_val = self.get_register(reg);
+                            let high = reg_val >> 8;
+                            let low = reg_val & 0xFF;
+                            self.memory.data[ptr as usize] = low as u8;
+                            self.memory.data[ptr as usize + 1] = high as u8;
+                        }
+                    }
+                    (_, _) => unreachable!()
                 }
             },
         }

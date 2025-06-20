@@ -4,8 +4,9 @@ use crate::register::Register;
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Opcode {
     NOOP = 0x90,
-    MOV = 0xB0, // B0 - BF
-    MOV_REG = 0x88, // MOV r/m, r || MOV r, r/m
+    MOV_IMM = 0xB0, // B0 - BF, MOV reg, imm8/16 (immediate to register)
+    MOV_REG_MEM = 0x88, // 88 - 8B, MOV r/m, r || MOV r, r/m
+    MOV_ACC_MEM = 0xA0, // A0 - A3, MOV AL/AX <-> [imm16]
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash)]
@@ -23,12 +24,22 @@ pub enum MovOperand {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub enum MovMemOperand {
+    Register(Register),
+    MemoryPtr(u16),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Instruction {
     Noop,
     MovImm8(Register, u8),
     MovImm16(Register, u16),
+    // MOV between register and memory or register <-> register
     //  DEST      , SRC
     Mov(MovOperand, MovOperand),
+    // MOV AL/AX <-> [imm16]
+    //  DEST      , SRC
+    MovAccMem(MovMemOperand, MovMemOperand),
 }
 
 impl Instruction {
@@ -37,7 +48,7 @@ impl Instruction {
 
         match opcode {
             Opcode::NOOP => Ok(Self::Noop),
-            Opcode::MOV => {
+            Opcode::MOV_IMM => {
                 let bits_8 = (opcode_byte & 0b00001000) == 0;
                 let reg_bits = opcode_byte & 0b00000111;
                 let reg = Register::from_register_code(reg_bits, bits_8)?;
@@ -53,7 +64,7 @@ impl Instruction {
 
                 Ok(instr)
             },
-            Opcode::MOV_REG => {
+            Opcode::MOV_REG_MEM => {
                 let is_rm_target = opcode_byte & 0b00000010 == 0; // true if destination should be mod r/m
                 let is_8_bit = opcode_byte & 0b00000001 == 0; // true if operating with 8bit registers
 
@@ -109,6 +120,23 @@ impl Instruction {
                     Ok(Self::Mov(MovOperand::Register(reg), rm_operand))
                 }
             }
+            Opcode::MOV_ACC_MEM => {
+                let is_reg_target = opcode_byte & 0b00000010 == 0;
+                let is_8_bit = opcode_byte & 0b00000001 == 0;
+
+                let register = if is_8_bit {
+                    Register::AL
+                } else {
+                    Register::AX
+                };
+
+                let mem_ptr = ((memory_slice[1] as u16) << 8) | memory_slice[0] as u16;
+                if is_reg_target {
+                    Ok(Self::MovAccMem(MovMemOperand::Register(register), MovMemOperand::MemoryPtr(mem_ptr)))
+                } else {
+                    Ok(Self::MovAccMem(MovMemOperand::MemoryPtr(mem_ptr), MovMemOperand::Register(register)))
+                }
+            }
         }
     }
 
@@ -127,6 +155,7 @@ impl Instruction {
                 } else {
                     0
                 },
+            Instruction::MovAccMem(_, _) => 3,
         }
     }
 }
@@ -137,8 +166,9 @@ impl TryFrom<u8> for Opcode {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             x if x == Self::NOOP as u8 => Ok(Self::NOOP),
-            x if x >= 0xB0 && x <= 0xBF => Ok(Self::MOV),
-            x if x >= 0x88 && x <= 0x8B => Ok(Self::MOV_REG),
+            x if x >= 0xB0 && x <= 0xBF => Ok(Self::MOV_IMM),
+            x if x >= 0x88 && x <= 0x8B => Ok(Self::MOV_REG_MEM),
+            x if x >= 0xA0 && x <= 0xA3 => Ok(Self::MOV_ACC_MEM),
             _ => Err(format!("Invalid opcode: {:#x}", value)),
         }
     }

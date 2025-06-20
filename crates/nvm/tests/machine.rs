@@ -595,3 +595,106 @@ fn test_mov_16bit_mem_to_reg_and_backwards_keeping_all_values_same() {
     assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C + 1], 0xBB);
     assert_eq!(machine.get_register(Register::CX), 0xBBAA);
 }
+
+#[test]
+fn test_mov_acc_mem_to_8bit_reg() {
+    let mut machine = Machine::default();
+    machine.memory_mut().data[0x01BB] = 0xCC;
+
+    // MOV AL, [0x01BB]
+    machine.load_program_bytes(&[
+        0xA0, 0xBB, 0x01]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::AL), 0xCC);
+}
+
+#[test]
+fn test_mov_acc_mem_to_16bit_reg() {
+    let mut machine = Machine::default();
+    machine.memory_mut().data[0x01BB] = 0xCC;
+    machine.memory_mut().data[0x01BB + 1] = 0xFF;
+
+    // MOV AX, [0x01BB]
+    machine.load_program_bytes(&[
+        0xA1, 0xBB, 0x01]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::AX), 0xFFCC);
+}
+
+#[test]
+fn test_mov_8bit_reg_to_acc_mem() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::AL, 0xFF);
+
+    // MOV [0x01BB], AL
+    machine.load_program_bytes(&[
+        0xA2, 0xBB, 0x01]);
+
+    machine.step();
+    assert_eq!(machine.memory().data[0x01BB], 0xFF);
+}
+
+#[test]
+fn test_mov_16bit_reg_to_acc_mem() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::AX, 0xFFAA);
+
+    // MOV [0x01BB], AX
+    machine.load_program_bytes(&[
+        0xA3, 0xBB, 0x01]);
+
+    machine.step();
+    assert_eq!(machine.memory().data[0x01BB], 0xAA);
+    assert_eq!(machine.memory().data[0x01BB + 1], 0xFF);
+}
+
+#[test]
+fn test_mov_8bit_acc_mem_to_reg_and_backwards_keeping_all_values_same() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::AL, 0xAA);
+
+    // MOV [0x01BB], AL
+    // MOV [0x01BB], AL
+    // MOV AL, [0x01BB]
+    // MOV AL, [0x01BB]
+    machine.load_program_bytes(&[
+        0xA2, 0xBB, 0x01,
+        0xA2, 0xBB, 0x01,
+        0xA0, 0xBB, 0x01,
+        0xA0, 0xBB, 0x01
+    ]);
+
+    machine.step();
+    machine.step();
+    machine.step();
+    machine.step();
+    assert_eq!(machine.get_register(Register::AL), 0xAA);
+    assert_eq!(machine.memory().data[0x01BB], 0xAA);
+}
+
+#[test]
+fn test_mov_16bit_acc_mem_to_reg_and_backwards_keeping_all_values_same() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::AX, 0xFFAA);
+
+    // MOV [0x01BB], AX
+    // MOV [0x01BB], AX
+    // MOV AX, [0x01BB]
+    // MOV AX, [0x01BB]
+    machine.load_program_bytes(&[
+        0xA3, 0xBB, 0x01,
+        0xA3, 0xBB, 0x01,
+        0xA1, 0xBB, 0x01,
+        0xA1, 0xBB, 0x01
+    ]);
+
+    machine.step();
+    machine.step();
+    machine.step();
+    machine.step();
+    assert_eq!(machine.get_register(Register::AX), 0xFFAA);
+    assert_eq!(machine.memory().data[0x01BB], 0xAA);
+    assert_eq!(machine.memory().data[0x01BB + 1], 0xFF);
+}

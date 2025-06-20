@@ -1,4 +1,4 @@
-use nvm::instruction::{Instruction, MemAddress, MovOperand, Opcode};
+use nvm::instruction::{Instruction, MemAddress, MovMemOperand, MovOperand, Opcode};
 use nvm::register::Register;
 
 #[test]
@@ -8,12 +8,17 @@ fn test_opcode_from_byte() {
 
     for x in 0xB0..=0xBF {
         let mov_opcode = Opcode::try_from(x).unwrap();
-        assert_eq!(mov_opcode, Opcode::MOV);
+        assert_eq!(mov_opcode, Opcode::MOV_IMM);
     }
 
     for x in 0x88..=0x8B {
         let mov_opcode = Opcode::try_from(x).unwrap();
-        assert_eq!(mov_opcode, Opcode::MOV_REG);
+        assert_eq!(mov_opcode, Opcode::MOV_REG_MEM);
+    }
+
+    for x in 0xA0..=0xA3 {
+        let mov_opcode = Opcode::try_from(x).unwrap();
+        assert_eq!(mov_opcode, Opcode::MOV_ACC_MEM);
     }
 }
 
@@ -27,6 +32,9 @@ fn test_opcode_from_byte_returns_ok_only_for_explicitly_supported_opcodes() {
             continue;
         }
         if x >= 0x88 && x <= 0x8B {
+            continue;
+        }
+        if x >= 0xA0 && x <= 0xA3 {
             continue;
         }
 
@@ -71,6 +79,9 @@ fn test_instruction_get_size() {
         ..Default::default()
     }));
     assert_eq!(instr.get_instr_size(), 7);
+
+    let instr = Instruction::MovAccMem(MovMemOperand::MemoryPtr(0), MovMemOperand::Register(Register::AL));
+    assert_eq!(instr.get_instr_size(), 3);
 }
 
 #[test]
@@ -89,6 +100,9 @@ fn test_instruction_from_byte_returns_ok_only_for_explicitly_supported_opcodes()
             continue;
         }
         if x >= 0x88 && x <= 0x8B {
+            continue;
+        }
+        if x >= 0xA0 && x <= 0xA3 {
             continue;
         }
 
@@ -346,4 +360,23 @@ fn test_mov_reg_mem_displacement_instruction_from_bytes() {
         }), reg_operand));
         assert_eq!(instr.get_instr_size(), 4);
     }
+}
+
+#[test]
+fn test_mov_acc_mem_instruction_from_bytes() {
+    let instr = Instruction::from_bytes(0xA0, &[0xAA, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::MovAccMem(MovMemOperand::Register(Register::AL), MovMemOperand::MemoryPtr(0xBBAA)));
+    assert_eq!(instr.get_instr_size(), 3);
+
+    let instr = Instruction::from_bytes(0xA1, &[0xAA, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::MovAccMem(MovMemOperand::Register(Register::AX), MovMemOperand::MemoryPtr(0xBBAA)));
+    assert_eq!(instr.get_instr_size(), 3);
+
+    let instr = Instruction::from_bytes(0xA2, &[0xAA, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::MovAccMem(MovMemOperand::MemoryPtr(0xBBAA), MovMemOperand::Register(Register::AL)));
+    assert_eq!(instr.get_instr_size(), 3);
+
+    let instr = Instruction::from_bytes(0xA3, &[0xAA, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::MovAccMem(MovMemOperand::MemoryPtr(0xBBAA), MovMemOperand::Register(Register::AX)));
+    assert_eq!(instr.get_instr_size(), 3);
 }
