@@ -380,3 +380,81 @@ fn test_mov_acc_mem_instruction_from_bytes() {
     assert_eq!(instr, Instruction::MovAccMem(MovMemOperand::MemoryPtr(0xBBAA), MovMemOperand::Register(Register::AX)));
     assert_eq!(instr.get_instr_size(), 3);
 }
+
+#[test]
+pub fn test_push_pop_instruction_from_bytes() {
+
+    // ===========================
+    // PUSH
+    // ===========================
+    {
+        let instr = Instruction::from_bytes(0x50, &[]).unwrap();
+        assert_eq!(instr, Instruction::Push(Register::AX));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x51, &[]).unwrap();
+        assert_eq!(instr, Instruction::Push(Register::CX));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x52, &[]).unwrap();
+        assert_eq!(instr, Instruction::Push(Register::DX));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x53, &[]).unwrap();
+        assert_eq!(instr, Instruction::Push(Register::BX));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x54, &[]).unwrap();
+        assert_eq!(instr, Instruction::Push(Register::SP));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x55, &[]).unwrap();
+        assert_eq!(instr, Instruction::Push(Register::BP));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x56, &[]).unwrap();
+        assert_eq!(instr, Instruction::Push(Register::SI));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x57, &[]).unwrap();
+        assert_eq!(instr, Instruction::Push(Register::DI));
+        assert_eq!(instr.get_instr_size(), 1);
+    }
+
+    // ===========================
+    // POP
+    // ===========================
+    {
+        let instr = Instruction::from_bytes(0x58, &[]).unwrap();
+        assert_eq!(instr, Instruction::Pop(Register::AX));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x59, &[]).unwrap();
+        assert_eq!(instr, Instruction::Pop(Register::CX));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x5A, &[]).unwrap();
+        assert_eq!(instr, Instruction::Pop(Register::DX));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x5B, &[]).unwrap();
+        assert_eq!(instr, Instruction::Pop(Register::BX));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x5C, &[]).unwrap();
+        assert_eq!(instr, Instruction::Pop(Register::SP));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x5D, &[]).unwrap();
+        assert_eq!(instr, Instruction::Pop(Register::BP));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x5E, &[]).unwrap();
+        assert_eq!(instr, Instruction::Pop(Register::SI));
+        assert_eq!(instr.get_instr_size(), 1);
+
+        let instr = Instruction::from_bytes(0x5F, &[]).unwrap();
+        assert_eq!(instr, Instruction::Pop(Register::DI));
+        assert_eq!(instr.get_instr_size(), 1);
+    }
+}

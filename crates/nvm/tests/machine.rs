@@ -698,3 +698,55 @@ fn test_mov_16bit_acc_mem_to_reg_and_backwards_keeping_all_values_same() {
     assert_eq!(machine.memory().data[0x01BB], 0xAA);
     assert_eq!(machine.memory().data[0x01BB + 1], 0xFF);
 }
+
+#[test]
+fn test_push() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::SP, 0xAA);
+    machine.set_register(Register::AX, 0xFFBB);
+
+    // PUSH AX
+    machine.load_program_bytes(&[0x50]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::AX), 0xFFBB);
+    assert_eq!(machine.get_register(Register::SP), 0xAA - 2);
+    assert_eq!(machine.memory().data[0xAA - 2], 0xBB);
+    assert_eq!(machine.memory().data[0xAA - 1], 0xFF);
+}
+
+#[test]
+fn test_pop() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::SP, 0xAA);
+
+    machine.memory_mut().data[0xAA] = 0xBB;
+    machine.memory_mut().data[0xAA + 1] = 0xAA;
+
+    // POP AX
+    machine.load_program_bytes(&[0x58]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::SP), 0xAA + 2);
+    assert_eq!(machine.get_register(Register::AX), 0xAABB);
+    assert_eq!(machine.memory().data[0xAA], 0xBB);
+    assert_eq!(machine.memory().data[0xAA + 1], 0xAA);
+}
+
+#[test]
+fn test_push_pop() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::SP, 0xAA);
+    machine.set_register(Register::AX, 0xFFBB);
+
+    // PUSH AX
+    // POP AX
+    machine.load_program_bytes(&[0x50, 0x58]);
+
+    machine.step();
+    machine.step();
+    assert_eq!(machine.get_register(Register::SP), 0xAA);
+    assert_eq!(machine.get_register(Register::AX), 0xFFBB);
+    assert_eq!(machine.memory().data[0xAA - 2], 0xBB);
+    assert_eq!(machine.memory().data[0xAA - 1], 0xFF);
+}

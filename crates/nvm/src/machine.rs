@@ -81,6 +81,14 @@ impl Machine {
                     (_, _) => unreachable!()
                 }
             },
+            Instruction::Push(reg) => {
+                self.set_register(Register::SP, self.get_register(Register::SP) - 2);
+                self.memory.write_word(self.get_register(Register::SP) as usize, self.get_register(reg));
+            },
+            Instruction::Pop(reg) => {
+                self.set_register(reg, self.memory.read_word(self.get_register(Register::SP) as usize));
+                self.set_register(Register::SP, self.get_register(Register::SP) + 2);
+            },
         }
 
         self.set_register(Register::IP, self.get_register(Register::IP) + instruction.get_instr_size());

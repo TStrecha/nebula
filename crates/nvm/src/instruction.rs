@@ -4,6 +4,8 @@ use crate::register::Register;
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Opcode {
     NOOP = 0x90,
+    PUSH,
+    POP,
     MOV_IMM = 0xB0, // B0 - BF, MOV reg, imm8/16 (immediate to register)
     MOV_REG_MEM = 0x88, // 88 - 8B, MOV r/m, r || MOV r, r/m
     MOV_ACC_MEM = 0xA0, // A0 - A3, MOV AL/AX <-> [imm16]
@@ -40,6 +42,8 @@ pub enum Instruction {
     // MOV AL/AX <-> [imm16]
     //  DEST      , SRC
     MovAccMem(MovMemOperand, MovMemOperand),
+    Push(Register),
+    Pop(Register),
 }
 
 impl Instruction {
@@ -137,6 +141,12 @@ impl Instruction {
                     Ok(Self::MovAccMem(MovMemOperand::MemoryPtr(mem_ptr), MovMemOperand::Register(register)))
                 }
             }
+            Opcode::PUSH => {
+                Ok(Self::Push(Register::from_register_code(opcode_byte & 0b00000111, false)?))
+            }
+            Opcode::POP => {
+                Ok(Self::Pop(Register::from_register_code(opcode_byte & 0b00000111, false)?))
+            }
         }
     }
 
@@ -156,6 +166,7 @@ impl Instruction {
                     0
                 },
             Instruction::MovAccMem(_, _) => 3,
+            Instruction::Push(_) | Instruction::Pop(_) => 1,
         }
     }
 }
@@ -166,6 +177,8 @@ impl TryFrom<u8> for Opcode {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             x if x == Self::NOOP as u8 => Ok(Self::NOOP),
+            x if x >= 0x50 && x <= 0x57 => Ok(Self::PUSH),
+            x if x >= 0x58 && x <= 0x5F => Ok(Self::POP),
             x if x >= 0xB0 && x <= 0xBF => Ok(Self::MOV_IMM),
             x if x >= 0x88 && x <= 0x8B => Ok(Self::MOV_REG_MEM),
             x if x >= 0xA0 && x <= 0xA3 => Ok(Self::MOV_ACC_MEM),
