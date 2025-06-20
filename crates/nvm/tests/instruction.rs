@@ -20,6 +20,16 @@ fn test_opcode_from_byte() {
         let mov_opcode = Opcode::try_from(x).unwrap();
         assert_eq!(mov_opcode, Opcode::MOV_ACC_MEM);
     }
+
+    for x in 0x50..=0x57 {
+        let mov_opcode = Opcode::try_from(x).unwrap();
+        assert_eq!(mov_opcode, Opcode::PUSH);
+    }
+
+    for x in 0x58..=0x5F {
+        let mov_opcode = Opcode::try_from(x).unwrap();
+        assert_eq!(mov_opcode, Opcode::POP);
+    }
 }
 
 #[test]
@@ -35,6 +45,9 @@ fn test_opcode_from_byte_returns_ok_only_for_explicitly_supported_opcodes() {
             continue;
         }
         if x >= 0xA0 && x <= 0xA3 {
+            continue;
+        }
+        if x >= 0x50 && x <= 0x5F {
             continue;
         }
 
@@ -82,6 +95,12 @@ fn test_instruction_get_size() {
 
     let instr = Instruction::MovAccMem(MovMemOperand::MemoryPtr(0), MovMemOperand::Register(Register::AL));
     assert_eq!(instr.get_instr_size(), 3);
+
+    let instr = Instruction::Push(Register::AL);
+    assert_eq!(instr.get_instr_size(), 1);
+
+    let instr = Instruction::Pop(Register::AL);
+    assert_eq!(instr.get_instr_size(), 1);
 }
 
 #[test]
@@ -103,6 +122,9 @@ fn test_instruction_from_byte_returns_ok_only_for_explicitly_supported_opcodes()
             continue;
         }
         if x >= 0xA0 && x <= 0xA3 {
+            continue;
+        }
+        if x >= 0x50 && x <= 0x5F {
             continue;
         }
 
