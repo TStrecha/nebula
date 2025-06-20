@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufReader};
 use std::path::PathBuf;
-use nvm::instruction::Opcode;
+use nvm::instruction::{MemAddress, Opcode};
 use nvm::Machine;
 use nvm::register::Register;
 
@@ -193,6 +193,77 @@ fn test_mov_16bit() {
 
     assert_eq!(machine.get_register(Register::IP), 3);
     assert_eq!(machine.get_register(Register::AX), 0xFF10);
+}
+
+#[test]
+fn test_get_ptr_from_mem_address() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::BX, 0xAA);
+    machine.set_register(Register::SI, 0xBB);
+
+    let ptr = machine.get_ptr_from_mem_address(MemAddress {
+        base: None,
+        index: None,
+        displacement: 0,
+        displacement_size: 0,
+    });
+    assert_eq!(ptr, 0);
+
+    let ptr = machine.get_ptr_from_mem_address(MemAddress {
+        base: None,
+        index: None,
+        displacement: 0xCC,
+        displacement_size: 0,
+    });
+    assert_eq!(ptr, 0xCC);
+
+    let ptr = machine.get_ptr_from_mem_address(MemAddress {
+        base: Some(Register::BX),
+        index: None,
+        displacement: 0,
+        displacement_size: 0,
+    });
+    assert_eq!(ptr, 0xAA);
+
+    let ptr = machine.get_ptr_from_mem_address(MemAddress {
+        base: None,
+        index: Some(Register::SI),
+        displacement: 0,
+        displacement_size: 0,
+    });
+    assert_eq!(ptr, 0xBB);
+
+    let ptr = machine.get_ptr_from_mem_address(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0,
+        displacement_size: 0,
+    });
+    assert_eq!(ptr, 0xAA + 0xBB);
+
+    let ptr = machine.get_ptr_from_mem_address(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0xCC,
+        displacement_size: 0,
+    });
+    assert_eq!(ptr, 0xAA + 0xBB + 0xCC);
+
+    let ptr = machine.get_ptr_from_mem_address(MemAddress {
+        base: Some(Register::BX),
+        index: None,
+        displacement: 0xCC,
+        displacement_size: 0,
+    });
+    assert_eq!(ptr, 0xAA + 0xCC);
+
+    let ptr = machine.get_ptr_from_mem_address(MemAddress {
+        base: None,
+        index: Some(Register::SI),
+        displacement: 0xCC,
+        displacement_size: 0,
+    });
+    assert_eq!(ptr, 0xBB + 0xCC);
 }
 
 #[test]
@@ -464,7 +535,37 @@ fn test_mov_16bit_mem_to_reg_2byte_displacement() {
 }
 
 #[test]
-fn test_16bit() {
+fn test_mov_8bit_mem_to_reg_and_backwards_keeping_all_values_same() {
+    let mut machine = Machine::default();
+    machine.memory_mut().data[0xA + 0xB + 0xD0C] = 0xAA;
+
+    // MOV BX, 0xA
+    // MOV SI, 0xB
+    // MOV CL, [BX + SI + 0xD0C]
+    // MOV CL, [BX + SI + 0xD0C]
+    // MOV [BX + SI + 0xD0C], CL
+    // MOV [BX + SI + 0xD0C], CL
+    machine.load_program_bytes(&[
+        0xBB, 0x0A, 0x00,
+        0xBE, 0x0B, 0x00,
+        0x8A, 0b10001000, 0x0C, 0xD,
+        0x8A, 0b10001000, 0x0C, 0xD,
+        0x88, 0b10001000, 0x0C, 0xD,
+        0x88, 0b10001000, 0x0C, 0xD,
+    ]);
+
+    machine.step();
+    machine.step();
+    machine.step();
+    machine.step();
+    assert_eq!(machine.get_register(Register::BX), 0xA);
+    assert_eq!(machine.get_register(Register::SI), 0xB);
+    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C], 0xAA);
+    assert_eq!(machine.get_register(Register::CL), 0xAA);
+}
+
+#[test]
+fn test_mov_16bit_mem_to_reg_and_backwards_keeping_all_values_same() {
     let mut machine = Machine::default();
     machine.memory_mut().data[0xA + 0xB + 0xD0C] = 0xAA;
     machine.memory_mut().data[0xA + 0xB + 0xD0C + 1] = 0xBB;
