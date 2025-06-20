@@ -1,8 +1,9 @@
 use std::fs::File;
 use std::io::{BufReader};
 use std::path::PathBuf;
-use nvm::instruction::{MemAddress, Opcode};
+use nvm::instruction::{Opcode};
 use nvm::Machine;
+use nvm::modrm::MemAddress;
 use nvm::register::Register;
 
 #[test]
@@ -749,4 +750,117 @@ fn test_push_pop() {
     assert_eq!(machine.get_register(Register::AX), 0xFFBB);
     assert_eq!(machine.memory().data[0xAA - 2], 0xBB);
     assert_eq!(machine.memory().data[0xAA - 1], 0xFF);
+}
+
+#[test]
+fn test_add_acc_8() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::AL, 0x0A);
+
+    // ADD AL, 0xAA
+    machine.load_program_bytes(&[0x04, 0x02]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::AL), 0x0A + 0x02);
+}
+
+#[test]
+fn test_add_acc_16() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::AX, 0x1122);
+
+    // ADD AX, 0x2211
+    machine.load_program_bytes(&[0x05, 0x11, 0x22]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::AX), 0x1122 + 0x2211);
+}
+
+#[test]
+fn test_add_8bit_reg_to_mem() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::BX, 0x11);
+    machine.set_register(Register::SI, 0x22);
+    machine.set_register(Register::AL, 0x22);
+
+    machine.memory_mut().data[0x11 + 0x22] = 0x11;
+
+    // ADD [BX + SI], AL
+    machine.load_program_bytes(&[0x00, 0b00000000]);
+
+    machine.step();
+    assert_eq!(machine.memory().data[0x11 + 0x22], 0x22 + 0x11);
+}
+
+#[test]
+fn test_add_16bit_reg_to_mem() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::BX, 0x11);
+    machine.set_register(Register::SI, 0x22);
+    machine.set_register(Register::AX, 0x2233);
+
+    machine.memory_mut().data[0x11 + 0x22] = 0x11;
+
+    // ADD [BX + SI], AX
+    machine.load_program_bytes(&[0x01, 0b00000000]);
+
+    machine.step();
+    assert_eq!(machine.memory().read_word(0x11 + 0x22), 0x2233 + 0x11);
+}
+
+#[test]
+fn test_add_mem_to_8bit_reg() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::BX, 0x11);
+    machine.set_register(Register::SI, 0x22);
+    machine.set_register(Register::AL, 0x22);
+
+    machine.memory_mut().data[0x11 + 0x22] = 0x11;
+
+    // ADD AL, [BX + SI]
+    machine.load_program_bytes(&[0x02, 0b00000000]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::AL), 0x22 + 0x11);
+}
+
+#[test]
+fn test_add_mem_to_16bit_reg() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::BX, 0x11);
+    machine.set_register(Register::SI, 0x22);
+    machine.set_register(Register::AX, 0x2233);
+
+    machine.memory_mut().data[0x11 + 0x22] = 0x11;
+
+    // ADD AX, [BX + SI]
+    machine.load_program_bytes(&[0x03, 0b00000000]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::AX), 0x2233 + 0x11);
+}
+#[test]
+fn test_add_8bit_reg_to_8bit_reg() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::CL, 0x11);
+    machine.set_register(Register::AL, 0x22);
+
+    // ADD AL, CL
+    machine.load_program_bytes(&[0x02, 0b11000001]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::AL), 0x22 + 0x11);
+}
+
+#[test]
+fn test_add_16bit_reg_to_16bit_reg() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::CX, 0x11);
+    machine.set_register(Register::AX, 0x2233);
+
+    // ADD AX, CX
+    machine.load_program_bytes(&[0x03, 0b11000001]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::AX), 0x2233 + 0x11);
 }

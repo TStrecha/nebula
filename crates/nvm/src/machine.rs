@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::io::{BufReader, Read};
-use crate::instruction::{Instruction, MemAddress, MovMemOperand, MovOperand};
+use crate::instruction::{Instruction, MovMemOperand};
 use crate::memory::LinearMemory;
+use crate::modrm::{MemAddress, Operand};
 use crate::register::Register;
 
 pub struct Machine {
@@ -38,10 +39,10 @@ impl Machine {
             Instruction::Mov(dest, src) => {
 
                 match(dest, src) {
-                    (MovOperand::Register(dest_reg), MovOperand::Register(src_reg)) => {
+                    (Operand::Register(dest_reg), Operand::Register(src_reg)) => {
                         self.set_register(dest_reg, self.get_register(src_reg))
                     },
-                    (MovOperand::Register(dest_reg), MovOperand::Memory(mem_addr)) => {
+                    (Operand::Register(dest_reg), Operand::Memory(mem_addr)) => {
                         let ptr = self.get_ptr_from_mem_address(mem_addr);
                         if dest_reg.is_8bit() {
                             self.set_register(dest_reg, self.memory.read_byte(ptr) as u16);
@@ -49,7 +50,7 @@ impl Machine {
                             self.set_register(dest_reg, self.memory.read_word(ptr));
                         }
                     },
-                    (MovOperand::Memory(mem_addr), MovOperand::Register(src_reg)) => {
+                    (Operand::Memory(mem_addr), Operand::Register(src_reg)) => {
                         let ptr = self.get_ptr_from_mem_address(mem_addr);
                         let reg_val = self.get_register(src_reg);
 
@@ -59,7 +60,7 @@ impl Machine {
                             self.memory.write_word(ptr, reg_val);
                         }
                     }
-                    (MovOperand::Memory(_), MovOperand::Memory(_)) => unreachable!()
+                    (Operand::Memory(_), Operand::Memory(_)) => unreachable!()
                 }
             },
             Instruction::MovAccMem(dest, src) => {
@@ -89,6 +90,38 @@ impl Machine {
                 self.set_register(reg, self.memory.read_word(self.get_register(Register::SP) as usize));
                 self.set_register(Register::SP, self.get_register(Register::SP) + 2);
             },
+            Instruction::Add(dest, src) => {
+                match(dest, src) {
+                    (Operand::Register(dest_reg), Operand::Register(src_reg)) => {
+                        self.set_register(dest_reg, self.get_register(dest_reg) + self.get_register(src_reg))
+                    },
+                    (Operand::Register(dest_reg), Operand::Memory(mem_addr)) => {
+                        let ptr = self.get_ptr_from_mem_address(mem_addr);
+                        if dest_reg.is_8bit() {
+                            self.set_register(dest_reg, self.get_register(dest_reg) + self.memory.read_byte(ptr) as u16);
+                        } else {
+                            self.set_register(dest_reg, self.get_register(dest_reg) + self.memory.read_word(ptr));
+                        }
+                    },
+                    (Operand::Memory(mem_addr), Operand::Register(src_reg)) => {
+                        let ptr = self.get_ptr_from_mem_address(mem_addr);
+                        let reg_val = self.get_register(src_reg);
+
+                        if src_reg.is_8bit() {
+                            self.memory.write_byte(ptr, self.memory.read_byte(ptr) + reg_val as u8);
+                        } else {
+                            self.memory.write_word(ptr, self.memory.read_word(ptr) + reg_val);
+                        }
+                    }
+                    (Operand::Memory(_), Operand::Memory(_)) => unreachable!()
+                }
+            }
+            Instruction::AddAcc8(val) => {
+                self.set_register(Register::AL, self.get_register(Register::AL) + val as u16);
+            }
+            Instruction::AddAcc16(val) => {
+                self.set_register(Register::AX, self.get_register(Register::AX) + val);
+            }
         }
 
         self.set_register(Register::IP, self.get_register(Register::IP) + instruction.get_instr_size());
