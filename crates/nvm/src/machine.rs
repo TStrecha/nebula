@@ -14,7 +14,7 @@ impl Machine {
         assert!(program.get_ref().metadata().unwrap().len() <= self.memory.data.len() as u64, "Program cannot be larger than memory");
 
         for (i, byte) in program.bytes().enumerate() {
-            self.memory.data[i] = byte.unwrap();
+            self.memory.write_byte(i, byte.unwrap());
         }
     }
 
@@ -26,10 +26,9 @@ impl Machine {
 
     pub fn step(&mut self) {
         let ip = self.get_register(Register::IP) as usize;
-        let memory_slice = &self.memory.data[ip + 1 .. ip + 11];
 
-        let opcode_byte = self.memory.data[ip];
-        let instruction = Instruction::from_bytes(opcode_byte, memory_slice).unwrap();
+        let opcode_byte = self.memory.read_byte(ip);
+        let instruction = Instruction::from_bytes(opcode_byte, &self.memory.data[ip + 1..]).unwrap();
         println!("Running instruction: {:?}", instruction);
 
         match instruction {
@@ -38,59 +37,45 @@ impl Machine {
             Instruction::MovImm16(register, val) => self.set_register(register, val),
             Instruction::Mov(dest, src) => {
 
-                match dest {
-                    MovOperand::Register(dest_reg) => {
-                        match src {
-                            MovOperand::Register(src_reg) => self.set_register(dest_reg, self.get_register(src_reg)),
-                            MovOperand::Memory(mem_addr) => {
-                                let ptr = self.get_ptr_from_mem_address(mem_addr);
-                                if !dest_reg.is_8bit() {
-                                    let low = self.memory.data[ptr] as u16;
-                                    let high = (self.memory.data[ptr + 1] as u16) << 8;
-                                    self.set_register(dest_reg, low | high);
-                                } else {
-                                    self.set_register(dest_reg, self.memory.data[ptr] as u16);
-                                }
-                            }
+                match(dest, src) {
+                    (MovOperand::Register(dest_reg), MovOperand::Register(src_reg)) => {
+                        self.set_register(dest_reg, self.get_register(src_reg))
+                    },
+                    (MovOperand::Register(dest_reg), MovOperand::Memory(mem_addr)) => {
+                        let ptr = self.get_ptr_from_mem_address(mem_addr);
+                        if dest_reg.is_8bit() {
+                            self.set_register(dest_reg, self.memory.read_byte(ptr) as u16);
+                        } else {
+                            self.set_register(dest_reg, self.memory.read_word(ptr));
+                        }
+                    },
+                    (MovOperand::Memory(mem_addr), MovOperand::Register(src_reg)) => {
+                        let ptr = self.get_ptr_from_mem_address(mem_addr);
+                        let reg_val = self.get_register(src_reg);
+
+                        if src_reg.is_8bit() {
+                            self.memory.write_byte(ptr, reg_val as u8);
+                        } else {
+                            self.memory.write_word(ptr, reg_val);
                         }
                     }
-                    MovOperand::Memory(mem_addr) => {
-
-                        match src {
-                            MovOperand::Register(src_reg) => {
-                                let ptr = self.get_ptr_from_mem_address(mem_addr);
-                                let reg_val = self.get_register(src_reg);
-
-                                self.memory.data[ptr] = reg_val as u8;
-                                if !src_reg.is_8bit() {
-                                    self.memory.data[ptr + 1] = (reg_val >> 8) as u8;
-                                }
-                            }
-                            MovOperand::Memory(_) => unreachable!()
-                        }
-                    }
+                    (MovOperand::Memory(_), MovOperand::Memory(_)) => unreachable!()
                 }
             },
             Instruction::MovAccMem(dest, src) => {
                 match (dest, src) {
                     (MovMemOperand::Register(reg), MovMemOperand::MemoryPtr(ptr)) => {
                         if reg.is_8bit() {
-                            self.set_register(reg, self.memory.data[ptr as usize] as u16);
+                            self.set_register(reg, self.memory.read_byte(ptr as usize) as u16);
                         } else {
-                            let val = ((self.memory.data[ptr as usize + 1] as u16) << 8)
-                                | self.memory.data[ptr as usize] as u16;
-                            self.set_register(reg, val);
+                            self.set_register(reg, self.memory.read_word(ptr as usize));
                         }
                     }
                     (MovMemOperand::MemoryPtr(ptr), MovMemOperand::Register(reg)) => {
                         if reg.is_8bit() {
-                            self.memory.data[ptr as usize] = self.get_register(reg) as u8;
+                            self.memory.write_byte(ptr as usize, self.get_register(reg) as u8);
                         } else {
-                            let reg_val = self.get_register(reg);
-                            let high = reg_val >> 8;
-                            let low = reg_val & 0xFF;
-                            self.memory.data[ptr as usize] = low as u8;
-                            self.memory.data[ptr as usize + 1] = high as u8;
+                            self.memory.write_word(ptr as usize, self.get_register(reg));
                         }
                     }
                     (_, _) => unreachable!()
