@@ -2,7 +2,6 @@
 name = "runtime"
 version = "0.1.0"
 edition = "2024"
-build = "src/build.rs"
 
 [dependencies]
 nvm = { path = "../nvm" }
@@ -10,3 +9,6 @@ nvm = { path = "../nvm" }
 [[bin]]
 name = "nvm"
 path = "src/main.rs"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

@@ -2,6 +2,7 @@ use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Expr, ExprAssign, ExprBinary, ExprLit, ItemFn, Lit};
 
+#[cfg(not(tarpaulin_include))] //TODO: Create tests for this macro
 #[proc_macro_attribute]
 pub fn machine_test(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = syn::parse::<ItemFn>(input).unwrap();
