@@ -4,15 +4,18 @@ use crate::register::Register;
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Opcode {
-    NOOP = 0x90,
-    PUSH,
-    POP,
+    NOOP = 0x90, // NOP
+    PUSH, // 50 - 57, PUSH reg
+    POP,  // 58 - 5F, POP reg
     MOV_IMM = 0xB0, // B0 - BF, MOV reg, imm8/16 (immediate to register)
     MOV_REG_MEM = 0x88, // 88 - 8B, MOV r/m, r || MOV r, r/m
     MOV_ACC_MEM = 0xA0, // A0 - A3, MOV AL/AX <-> [imm16]
-    ADD = 0x00,
-    ADD_ACC_8 = 0x04,
-    ADD_ACC_16 = 0x05,
+    ADD = 0x00, // 00 - 03, ADD r/m, r || ADD r, r/m
+    ADD_ACC_8 = 0x04, // ADD AL, imm8
+    ADD_ACC_16 = 0x05, // ADD AX, imm16
+    SUB = 0x28, // 28 - 2B, SUB r/m, r || SUB r, r/m
+    SUB_ACC_8 = 0x2C, // SUB AL, imm8
+    SUB_ACC_16 = 0x2D, // SUB AX, imm16
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -37,6 +40,9 @@ pub enum Instruction {
     Add(Operand, Operand),
     AddAcc8(u8),
     AddAcc16(u16),
+    Sub(Operand, Operand),
+    SubAcc8(u8),
+    SubAcc16(u16),
 }
 
 impl Instruction {
@@ -99,6 +105,17 @@ impl Instruction {
                 let val = (memory_slice[1] as u16) << 8 | memory_slice[0] as u16;
                 Ok(Self::AddAcc16(val))
             }
+            Opcode::SUB => {
+                let operands = decode_operands_from_mod_rm_opcode(opcode_byte, memory_slice)?;
+                Ok(Self::Sub(operands.0, operands.1))
+            }
+            Opcode::SUB_ACC_8 => {
+                Ok(Self::SubAcc8(memory_slice[0]))
+            }
+            Opcode::SUB_ACC_16 => {
+                let val = (memory_slice[1] as u16) << 8 | memory_slice[0] as u16;
+                Ok(Self::SubAcc16(val))
+            }
         }
     }
 
@@ -131,6 +148,18 @@ impl Instruction {
             },
             Self::AddAcc8(_) => 2,
             Self::AddAcc16(_) => 3,
+            Self::Sub(operand1, operand2) => 2 +
+                if let Operand::Memory(mem_add) = operand1 {
+                    mem_add.displacement_size as u16
+                } else {
+                    0
+                } + if let Operand::Memory(mem_add) = operand2 {
+                mem_add.displacement_size as u16
+            } else {
+                0
+            },
+            Self::SubAcc8(_) => 2,
+            Self::SubAcc16(_) => 3,
         }
     }
 }
@@ -149,6 +178,9 @@ impl TryFrom<u8> for Opcode {
             x if /* x >= 0x00 && */ x <= 0x03 => Ok(Self::ADD),
             x if x == Self::ADD_ACC_8 as u8 => Ok(Self::ADD_ACC_8),
             x if x == Self::ADD_ACC_16 as u8 => Ok(Self::ADD_ACC_16),
+            x if x >= 0x28 && x <= 0x2B => Ok(Self::SUB),
+            x if x == Self::SUB_ACC_8 as u8 => Ok(Self::SUB_ACC_8),
+            x if x == Self::SUB_ACC_16 as u8 => Ok(Self::SUB_ACC_16),
             _ => Err(format!("Invalid opcode: {:#x}", value)),
         }
     }

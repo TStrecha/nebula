@@ -100,14 +100,14 @@ impl Machine {
             Instruction::Add(dest, src) => {
                 match(dest, src) {
                     (Operand::Register(dest_reg), Operand::Register(src_reg)) => {
-                        self.set_register(dest_reg, self.get_register(dest_reg) + self.get_register(src_reg))
+                        self.set_register(dest_reg, self.get_register(dest_reg).wrapping_add(self.get_register(src_reg)))
                     },
                     (Operand::Register(dest_reg), Operand::Memory(mem_addr)) => {
                         let ptr = self.get_ptr_from_mem_address(mem_addr);
                         if dest_reg.is_8bit() {
-                            self.set_register(dest_reg, self.get_register(dest_reg) + self.memory.read_byte(ptr) as u16);
+                            self.set_register(dest_reg, self.get_register(dest_reg).wrapping_add(self.memory.read_byte(ptr) as u16));
                         } else {
-                            self.set_register(dest_reg, self.get_register(dest_reg) + self.memory.read_word(ptr));
+                            self.set_register(dest_reg, self.get_register(dest_reg).wrapping_add(self.memory.read_word(ptr)));
                         }
                     },
                     (Operand::Memory(mem_addr), Operand::Register(src_reg)) => {
@@ -115,19 +115,51 @@ impl Machine {
                         let reg_val = self.get_register(src_reg);
 
                         if src_reg.is_8bit() {
-                            self.memory.write_byte(ptr, self.memory.read_byte(ptr) + reg_val as u8);
+                            self.memory.write_byte(ptr, self.memory.read_byte(ptr).wrapping_add(reg_val as u8));
                         } else {
-                            self.memory.write_word(ptr, self.memory.read_word(ptr) + reg_val);
+                            self.memory.write_word(ptr, self.memory.read_word(ptr).wrapping_add(reg_val));
                         }
                     }
                     (Operand::Memory(_), Operand::Memory(_)) => unreachable!()
                 }
             }
             Instruction::AddAcc8(val) => {
-                self.set_register(Register::AL, self.get_register(Register::AL) + val as u16);
+                self.set_register(Register::AL, self.get_register(Register::AL).wrapping_add(val as u16));
             }
             Instruction::AddAcc16(val) => {
-                self.set_register(Register::AX, self.get_register(Register::AX) + val);
+                self.set_register(Register::AX, self.get_register(Register::AX).wrapping_add(val));
+            }
+            Instruction::Sub(dest, src) => {
+                match(dest, src) {
+                    (Operand::Register(dest_reg), Operand::Register(src_reg)) => {
+                        self.set_register(dest_reg, self.get_register(dest_reg).wrapping_sub(self.get_register(src_reg)))
+                    },
+                    (Operand::Register(dest_reg), Operand::Memory(mem_addr)) => {
+                        let ptr = self.get_ptr_from_mem_address(mem_addr);
+                        if dest_reg.is_8bit() {
+                            self.set_register(dest_reg, self.get_register(dest_reg).wrapping_sub(self.memory.read_byte(ptr) as u16));
+                        } else {
+                            self.set_register(dest_reg, self.get_register(dest_reg).wrapping_sub(self.memory.read_word(ptr)));
+                        }
+                    },
+                    (Operand::Memory(mem_addr), Operand::Register(src_reg)) => {
+                        let ptr = self.get_ptr_from_mem_address(mem_addr);
+                        let src_reg_val = self.get_register(src_reg);
+
+                        if src_reg.is_8bit() {
+                            self.memory.write_byte(ptr, self.memory.read_byte(ptr).wrapping_sub(src_reg_val as u8));
+                        } else {
+                            self.memory.write_word(ptr, self.memory.read_word(ptr).wrapping_sub(src_reg_val));
+                        }
+                    }
+                    (Operand::Memory(_), Operand::Memory(_)) => unreachable!()
+                }
+            }
+            Instruction::SubAcc8(val) => {
+                self.set_register(Register::AL, self.get_register(Register::AL).wrapping_sub(val as u16));
+            }
+            Instruction::SubAcc16(val) => {
+                self.set_register(Register::AX, self.get_register(Register::AX).wrapping_sub(val));
             }
         }
     }
