@@ -1,4 +1,4 @@
-use crate::modrm::{decode_operands_from_mod_rm_opcode, Operand};
+use crate::modrm::{decode_operand_from_single_mod_rm_opcode, decode_operands_from_mod_rm_opcode, Operand};
 use crate::register::Register;
 
 #[allow(non_camel_case_types)]
@@ -18,6 +18,8 @@ pub enum Opcode {
     SUB_ACC_16 = 0x2D, // SUB AX, imm16
     INC = 0x40, // 40 - 47, INC r
     DEC = 0x48, // 48 - 4F, DEC r
+    MUL_DIV_8 = 0xF6, // MUL/DIV BYTE r/m ----- DIV if reg part (bit 2-4) of r/m is 0b110
+    MUL_DIV_16 = 0xF7, // MUL/DIV BYTE r/m ----- DIV if reg part (bit 2-4) of r/m is 0b110
 
     AND = 0x20, // 20 - 23, AND r/m, r || AND r, r/m
     AND_ACC_8 = 0x24, // AND AL, imm8
@@ -54,6 +56,10 @@ pub enum Instruction {
     SubAcc16(u16),
     Inc(Register),
     Dec(Register),
+    Mul8(Operand),
+    Mul16(Operand),
+    Div8(Operand),
+    Div16(Operand),
     And(Operand, Operand),
     AndAcc8(u8),
     AndAcc16(u16),
@@ -163,76 +169,52 @@ impl Instruction {
                 let val = (memory_slice[1] as u16) << 8 | memory_slice[0] as u16;
                 Ok(Self::OrAcc16(val))
             }
+            Opcode::MUL_DIV_8 => {
+                let operand = decode_operand_from_single_mod_rm_opcode(memory_slice, true)?;
+                if memory_slice[0] & 0b00111000 == 0b00110000 {
+                    Ok(Self::Div8(operand))
+                } else {
+                    Ok(Self::Mul8(operand))
+                }
+            }
+            Opcode::MUL_DIV_16 => {
+                let operand = decode_operand_from_single_mod_rm_opcode(memory_slice, false)?;
+                if memory_slice[0] & 0b00111000 == 0b00110000 {
+                    Ok(Self::Div16(operand))
+                } else {
+                    Ok(Self::Mul16(operand))
+                }
+            }
         }
     }
 
     pub fn get_instr_size(&self) -> u16 {
         match self {
-            Self::Noop => 1,
-            Self::MovImm8(..) => 2,
-            Self::MovImm16(..) => 3,
-            Self::Mov(operand1, operand2) => 2 +
+            Self::Noop | Self::Push(_) | Self::Pop(_) | Self::Inc(_) | Self::Dec(_) => 1,
+            Self::MovImm8(..) | Self::AddAcc8(_) | Self::SubAcc8(_) | Self::AndAcc8(_) | Self::OrAcc8(_) => 2,
+            Self::MovImm16(..) | Self::MovAccMem(_, _) | Self::AddAcc16(_) | Self::SubAcc16(_)
+            | Self::AndAcc16(_) | Self::OrAcc16(_) => 3,
+            Self::Mov(operand1, operand2)
+            | Self::Add(operand1, operand2)
+            | Self::Sub(operand1, operand2)
+            | Self::And(operand1, operand2)
+            | Self::Or(operand1, operand2) => 2 +
                 if let Operand::Memory(mem_add) = operand1 {
                     mem_add.displacement_size as u16
                 } else {
                     0
                 } + if let Operand::Memory(mem_add) = operand2 {
+                mem_add.displacement_size as u16
+            } else {
+                0
+            },
+            Self::Mul8(operand) | Self::Mul16(operand)
+            | Self::Div8(operand) | Self::Div16(operand) => 2 +
+                if let Operand::Memory(mem_add) = operand {
                     mem_add.displacement_size as u16
                 } else {
                     0
                 },
-            Self::MovAccMem(_, _) => 3,
-            Self::Push(_) | Self::Pop(_) => 1,
-            Self::Add(operand1, operand2) => 2 +
-                if let Operand::Memory(mem_add) = operand1 {
-                    mem_add.displacement_size as u16
-                } else {
-                    0
-                } + if let Operand::Memory(mem_add) = operand2 {
-                mem_add.displacement_size as u16
-            } else {
-                0
-            },
-            Self::AddAcc8(_) => 2,
-            Self::AddAcc16(_) => 3,
-            Self::Sub(operand1, operand2) => 2 +
-                if let Operand::Memory(mem_add) = operand1 {
-                    mem_add.displacement_size as u16
-                } else {
-                    0
-                } + if let Operand::Memory(mem_add) = operand2 {
-                mem_add.displacement_size as u16
-            } else {
-                0
-            },
-            Self::SubAcc8(_) => 2,
-            Self::SubAcc16(_) => 3,
-            Self::Inc(_) => 1,
-            Self::Dec(_) => 1,
-            Self::And(operand1, operand2) => 2 +
-                if let Operand::Memory(mem_add) = operand1 {
-                    mem_add.displacement_size as u16
-                } else {
-                    0
-                } + if let Operand::Memory(mem_add) = operand2 {
-                mem_add.displacement_size as u16
-            } else {
-                0
-            },
-            Self::AndAcc8(_) => 2,
-            Self::AndAcc16(_) => 3,
-            Self::Or(operand1, operand2) => 2 +
-                if let Operand::Memory(mem_add) = operand1 {
-                    mem_add.displacement_size as u16
-                } else {
-                    0
-                } + if let Operand::Memory(mem_add) = operand2 {
-                mem_add.displacement_size as u16
-            } else {
-                0
-            },
-            Self::OrAcc8(_) => 2,
-            Self::OrAcc16(_) => 3,
         }
     }
 }
@@ -256,6 +238,8 @@ impl TryFrom<u8> for Opcode {
             x if x == Self::SUB_ACC_16 as u8 => Ok(Self::SUB_ACC_16),
             x if x >= 0x40 && x <= 0x47 => Ok(Self::INC),
             x if x >= 0x48 && x <= 0x4F => Ok(Self::DEC),
+            x if x == Self::MUL_DIV_8 as u8 => Ok(Self::MUL_DIV_8),
+            x if x == Self::MUL_DIV_16 as u8 => Ok(Self::MUL_DIV_16),
             x if x >= 0x20 && x <= 0x23 => Ok(Self::AND),
             x if x == Self::AND_ACC_8 as u8 => Ok(Self::AND_ACC_8),
             x if x == Self::AND_ACC_16 as u8 => Ok(Self::AND_ACC_16),
