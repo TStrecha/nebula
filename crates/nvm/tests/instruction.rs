@@ -42,6 +42,17 @@ fn test_opcode_from_byte() {
 
     let noop_opcode = Opcode::try_from(0x05).unwrap();
     assert_eq!(noop_opcode, Opcode::ADD_ACC_16);
+
+    for x in 0x28..=0x2B {
+        let mov_opcode = Opcode::try_from(x).unwrap();
+        assert_eq!(mov_opcode, Opcode::SUB);
+    }
+
+    let noop_opcode = Opcode::try_from(0x2C).unwrap();
+    assert_eq!(noop_opcode, Opcode::SUB_ACC_8);
+
+    let noop_opcode = Opcode::try_from(0x2D).unwrap();
+    assert_eq!(noop_opcode, Opcode::SUB_ACC_16);
 }
 
 #[test]
@@ -71,6 +82,15 @@ fn test_opcode_from_byte_returns_ok_only_for_explicitly_supported_opcodes() {
         if x == Opcode::ADD_ACC_16 as u8 {
             continue;
         }
+        if x >= 0x28 && x <= 0x2B {
+            continue;
+        }
+        if x == Opcode::SUB_ACC_8 as u8 {
+            continue;
+        }
+        if x == Opcode::SUB_ACC_16 as u8 {
+            continue;
+        }
 
         let result = Opcode::try_from(x);
         assert!(result.is_err())
@@ -85,14 +105,23 @@ fn test_opcode_from_invalid_byte() {
 
 #[test]
 fn test_instruction_get_size() {
+    // ===================
+    // ==      NOOP     ==
+    // ===================
     let instr = Instruction::Noop;
     assert_eq!(instr.get_instr_size(), 1);
 
+    // ===================
+    // ==    MOV IMM    ==
+    // ===================
     let instr = Instruction::MovImm8(Register::AH, 0xFF);
     assert_eq!(instr.get_instr_size(), 2);
     let instr = Instruction::MovImm16(Register::AX, 0xFFFF);
     assert_eq!(instr.get_instr_size(), 3);
 
+    // ===================
+    // ==      MOV      ==
+    // ===================
     let instr = Instruction::Mov(Operand::Register(Register::AX), Operand::Memory(MemAddress::default()));
     assert_eq!(instr.get_instr_size(), 2);
     let instr = Instruction::Mov(Operand::Register(Register::AX), Operand::Memory(MemAddress {
@@ -117,12 +146,18 @@ fn test_instruction_get_size() {
     let instr = Instruction::MovAccMem(MovMemOperand::MemoryPtr(0), MovMemOperand::Register(Register::AL));
     assert_eq!(instr.get_instr_size(), 3);
 
+    // ===================
+    // ==   PUSH & POP  ==
+    // ===================
     let instr = Instruction::Push(Register::AL);
     assert_eq!(instr.get_instr_size(), 1);
 
     let instr = Instruction::Pop(Register::AL);
     assert_eq!(instr.get_instr_size(), 1);
 
+    // ===================
+    // ==      ADD      ==
+    // ===================
     let instr = Instruction::Add(Operand::Register(Register::AX), Operand::Memory(MemAddress::default()));
     assert_eq!(instr.get_instr_size(), 2);
     let instr = Instruction::Add(Operand::Register(Register::AX), Operand::Memory(MemAddress {
@@ -149,45 +184,42 @@ fn test_instruction_get_size() {
 
     let instr = Instruction::AddAcc16(0);
     assert_eq!(instr.get_instr_size(), 3);
+
+    // ===================
+    // ==      SUB      ==
+    // ===================
+    let instr = Instruction::Sub(Operand::Register(Register::AX), Operand::Memory(MemAddress::default()));
+    assert_eq!(instr.get_instr_size(), 2);
+    let instr = Instruction::Sub(Operand::Register(Register::AX), Operand::Memory(MemAddress {
+        displacement_size: 2,
+        ..Default::default()
+    }));
+    assert_eq!(instr.get_instr_size(), 4);
+    let instr = Instruction::Sub(Operand::Memory(MemAddress {
+        displacement_size: 3,
+        ..Default::default()
+    }), Operand::Register(Register::AX));
+    assert_eq!(instr.get_instr_size(), 5);
+    let instr = Instruction::Sub(Operand::Memory(MemAddress {
+        displacement_size: 2,
+        ..Default::default()
+    }), Operand::Memory(MemAddress {
+        displacement_size: 3,
+        ..Default::default()
+    }));
+    assert_eq!(instr.get_instr_size(), 7);
+
+    let instr = Instruction::SubAcc8(0);
+    assert_eq!(instr.get_instr_size(), 2);
+
+    let instr = Instruction::SubAcc16(0);
+    assert_eq!(instr.get_instr_size(), 3);
 }
 
 #[test]
 fn test_instruction_from_invalid_bytes() {
     let result = Instruction::from_bytes(0xFF, &[]);
     assert!(result.is_err());
-}
-
-#[test]
-fn test_instruction_from_byte_returns_ok_only_for_explicitly_supported_opcodes() {
-    for x in 0x00..=0xFF {
-        if x == Opcode::NOOP as u8 {
-            continue;
-        }
-        if x >= 0xB0 && x <= 0xBF {
-            continue;
-        }
-        if x >= 0x88 && x <= 0x8B {
-            continue;
-        }
-        if x >= 0xA0 && x <= 0xA3 {
-            continue;
-        }
-        if x >= 0x50 && x <= 0x5F {
-            continue;
-        }
-        if /* x >= 0x00 && */ x <= 0x03 {
-            continue;
-        }
-        if x == Opcode::ADD_ACC_8 as u8 {
-            continue;
-        }
-        if x == Opcode::ADD_ACC_16 as u8 {
-            continue;
-        }
-
-        let result = Instruction::from_bytes(x, &[]);
-        assert!(result.is_err())
-    }
 }
 
 #[test]
@@ -648,5 +680,118 @@ fn test_add_acc_8_instruction_from_bytes() {
 fn test_add_acc_16_instruction_from_bytes() {
     let instr = Instruction::from_bytes(0x05, &[0xAA, 0xBB]).unwrap();
     assert_eq!(instr, Instruction::AddAcc16(0xBBAA));
+    assert_eq!(instr.get_instr_size(), 3);
+}
+
+#[test]
+fn test_sub_instruction_from_bytes() {
+    // r/m8 <- r8
+    let instr = Instruction::from_bytes(0x28, &[0b11000000]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Register(Register::AL), Operand::Register(Register::AL)));
+    assert_eq!(instr.get_instr_size(), 2);
+
+    // r/m8 <- r8
+    let instr = Instruction::from_bytes(0x28, &[0b00000000]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0,
+        displacement_size: 0,
+    }), Operand::Register(Register::AL)));
+    assert_eq!(instr.get_instr_size(), 2);
+
+    // r/m16 <- r16
+    let instr = Instruction::from_bytes(0x29, &[0b00000000]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0,
+        displacement_size: 0,
+    }), Operand::Register(Register::AX)));
+    assert_eq!(instr.get_instr_size(), 2);
+
+    // r8 <- r/m8
+    let instr = Instruction::from_bytes(0x2A, &[0b00000000]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Register(Register::AL), Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0,
+        displacement_size: 0,
+    })));
+    assert_eq!(instr.get_instr_size(), 2);
+
+    // r16 <- r/m16
+    let instr = Instruction::from_bytes(0x2B, &[0b00000000]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Register(Register::AX), Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0,
+        displacement_size: 0,
+    })));
+    assert_eq!(instr.get_instr_size(), 2);
+
+    // DISPLACEMENT
+    // r/m8 <- r8
+    let instr = Instruction::from_bytes(0x28, &[0b10000000, 0xFF, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0xBBFF,
+        displacement_size: 2,
+    }), Operand::Register(Register::AL)));
+    assert_eq!(instr.get_instr_size(), 4);
+
+    // r/m16 <- r16
+    let instr = Instruction::from_bytes(0x29, &[0b10000000, 0xFF, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0xBBFF,
+        displacement_size: 2,
+    }), Operand::Register(Register::AX)));
+    assert_eq!(instr.get_instr_size(), 4);
+
+    // r8 <- r/m8
+    let instr = Instruction::from_bytes(0x2A, &[0b10000000, 0xFF, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Register(Register::AL), Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0xBBFF,
+        displacement_size: 2,
+    })));
+    assert_eq!(instr.get_instr_size(), 4);
+
+    // r16 <- r/m16
+    let instr = Instruction::from_bytes(0x2B, &[0b10000000, 0xFF, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Register(Register::AX), Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0xBBFF,
+        displacement_size: 2,
+    })));
+    assert_eq!(instr.get_instr_size(), 4);
+
+    // r16 <- r/m16
+    let instr = Instruction::from_bytes(0x2B, &[0b00000110, 0xFF, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::Sub(Operand::Register(Register::AX), Operand::Memory(MemAddress {
+        base: None,
+        index: None,
+        displacement: 0xBBFF,
+        displacement_size: 2,
+    })));
+    assert_eq!(instr.get_instr_size(), 4);
+}
+
+#[test]
+fn test_sub_acc_8_instruction_from_bytes() {
+    let instr = Instruction::from_bytes(0x2C, &[0xFF]).unwrap();
+    assert_eq!(instr, Instruction::SubAcc8(0xFF));
+    assert_eq!(instr.get_instr_size(), 2);
+}
+
+#[test]
+fn test_sub_acc_16_instruction_from_bytes() {
+    let instr = Instruction::from_bytes(0x2D, &[0xAA, 0xBB]).unwrap();
+    assert_eq!(instr, Instruction::SubAcc16(0xBBAA));
     assert_eq!(instr.get_instr_size(), 3);
 }
