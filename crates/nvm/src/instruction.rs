@@ -16,8 +16,15 @@ pub enum Opcode {
     SUB = 0x28, // 28 - 2B, SUB r/m, r || SUB r, r/m
     SUB_ACC_8 = 0x2C, // SUB AL, imm8
     SUB_ACC_16 = 0x2D, // SUB AX, imm16
-    INC,
-    DEC,
+    INC = 0x40, // 40 - 47, INC r
+    DEC = 0x48, // 48 - 4F, DEC r
+
+    AND = 0x20, // 20 - 23, AND r/m, r || AND r, r/m
+    AND_ACC_8 = 0x24, // AND AL, imm8
+    AND_ACC_16 = 0x25, // AND AX, imm16
+    OR = 0x08, // 08 - 0B, OR r/m, r || OR r, r/m
+    OR_ACC_8 = 0x0C, // OR AL, imm8
+    OR_ACC_16 = 0x0D, // OR AX, imm16
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -47,6 +54,12 @@ pub enum Instruction {
     SubAcc16(u16),
     Inc(Register),
     Dec(Register),
+    And(Operand, Operand),
+    AndAcc8(u8),
+    AndAcc16(u16),
+    Or(Operand, Operand),
+    OrAcc8(u8),
+    OrAcc16(u16),
 }
 
 impl Instruction {
@@ -128,6 +141,28 @@ impl Instruction {
                 let reg_bits = opcode_byte & 0b00000111;
                 Ok(Self::Dec(Register::from_register_code(reg_bits, false)?))
             }
+            Opcode::AND => {
+                let operands = decode_operands_from_mod_rm_opcode(opcode_byte, memory_slice)?;
+                Ok(Self::And(operands.0, operands.1))
+            }
+            Opcode::AND_ACC_8 => {
+                Ok(Self::AndAcc8(memory_slice[0]))
+            }
+            Opcode::AND_ACC_16 => {
+                let val = (memory_slice[1] as u16) << 8 | memory_slice[0] as u16;
+                Ok(Self::AndAcc16(val))
+            }
+            Opcode::OR => {
+                let operands = decode_operands_from_mod_rm_opcode(opcode_byte, memory_slice)?;
+                Ok(Self::Or(operands.0, operands.1))
+            }
+            Opcode::OR_ACC_8 => {
+                Ok(Self::OrAcc8(memory_slice[0]))
+            }
+            Opcode::OR_ACC_16 => {
+                let val = (memory_slice[1] as u16) << 8 | memory_slice[0] as u16;
+                Ok(Self::OrAcc16(val))
+            }
         }
     }
 
@@ -174,6 +209,30 @@ impl Instruction {
             Self::SubAcc16(_) => 3,
             Self::Inc(_) => 1,
             Self::Dec(_) => 1,
+            Self::And(operand1, operand2) => 2 +
+                if let Operand::Memory(mem_add) = operand1 {
+                    mem_add.displacement_size as u16
+                } else {
+                    0
+                } + if let Operand::Memory(mem_add) = operand2 {
+                mem_add.displacement_size as u16
+            } else {
+                0
+            },
+            Self::AndAcc8(_) => 2,
+            Self::AndAcc16(_) => 3,
+            Self::Or(operand1, operand2) => 2 +
+                if let Operand::Memory(mem_add) = operand1 {
+                    mem_add.displacement_size as u16
+                } else {
+                    0
+                } + if let Operand::Memory(mem_add) = operand2 {
+                mem_add.displacement_size as u16
+            } else {
+                0
+            },
+            Self::OrAcc8(_) => 2,
+            Self::OrAcc16(_) => 3,
         }
     }
 }
@@ -197,6 +256,12 @@ impl TryFrom<u8> for Opcode {
             x if x == Self::SUB_ACC_16 as u8 => Ok(Self::SUB_ACC_16),
             x if x >= 0x40 && x <= 0x47 => Ok(Self::INC),
             x if x >= 0x48 && x <= 0x4F => Ok(Self::DEC),
+            x if x >= 0x20 && x <= 0x23 => Ok(Self::AND),
+            x if x == Self::AND_ACC_8 as u8 => Ok(Self::AND_ACC_8),
+            x if x == Self::AND_ACC_16 as u8 => Ok(Self::AND_ACC_16),
+            x if x >= 0x08 && x <= 0x0B => Ok(Self::OR),
+            x if x == Self::OR_ACC_8 as u8 => Ok(Self::OR_ACC_8),
+            x if x == Self::OR_ACC_16 as u8 => Ok(Self::OR_ACC_16),
             _ => Err(format!("Invalid opcode: {:#x}", value)),
         }
     }
