@@ -32,6 +32,13 @@ impl Machine {
         let instruction = Instruction::from_bytes(opcode_byte, &self.memory.data[ip + 1..]).unwrap();
         println!("Running instruction: {:?}", instruction);
 
+        self.run_instruction(instruction);
+
+        self.set_register(Register::IP, self.get_register(Register::IP) + instruction.get_instr_size());
+    }
+
+    pub fn run_instruction(&mut self, instruction: Instruction) {
+
         match instruction {
             Instruction::Noop => {},
             Instruction::MovImm8(register, val) => self.set_register(register, val as u16),
@@ -123,8 +130,6 @@ impl Machine {
                 self.set_register(Register::AX, self.get_register(Register::AX) + val);
             }
         }
-
-        self.set_register(Register::IP, self.get_register(Register::IP) + instruction.get_instr_size());
     }
 
     pub fn get_ptr_from_mem_address(&self, mem_addr: MemAddress) -> usize {
