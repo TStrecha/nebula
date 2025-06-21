@@ -122,6 +122,26 @@ impl Machine {
     pub fn memory_mut(&mut self) -> &mut LinearMemory {
         &mut self.memory
     }
+
+    pub fn dump_self(&self) {
+        println!("AX: {} | CX: {} | DX: {} | BX: {} | SP: {} | \
+        BP: {} | SI: {} | DI: {} | CS: {} | DS: {} | SS: {} | \
+        ES: {} | IP: {} | FLAGS: {:b}",
+        self.get_register(Register::AX),
+        self.get_register(Register::CX),
+        self.get_register(Register::DX),
+        self.get_register(Register::BX),
+        self.get_register(Register::SP),
+        self.get_register(Register::BP),
+        self.get_register(Register::SI),
+        self.get_register(Register::DI),
+        self.get_register(Register::CS),
+        self.get_register(Register::DS),
+        self.get_register(Register::SS),
+        self.get_register(Register::ES),
+        self.get_register(Register::IP),
+        self.get_register(Register::F));
+    }
 }
 
 impl Default for Machine {

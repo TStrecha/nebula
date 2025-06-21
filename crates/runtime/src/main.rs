@@ -36,4 +36,5 @@ fn main() {
     machine.step();
     machine.step();
     machine.step();
+    machine.dump_self();
 }
