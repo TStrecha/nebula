@@ -239,6 +239,7 @@ fn test_add_16bit_reg_to_16bit_reg(mut machine: Machine) {
 
     assert_eq!(machine.get_register(Register::AX), 0x2233 + 0x11);
 }
+
 #[machine_test]
 #[machine_state(Register::CL = 0x02)]
 #[machine_state(Register::AX = 0xFFFF)]
@@ -247,4 +248,25 @@ fn test_add_16bit_reg_to_16bit_reg_wrapping(mut machine: Machine) {
     machine.run_instruction(Instruction::Add(Operand::Register(Register::AX), Operand::Register(Register::CX)));
 
     assert_eq!(machine.get_register(Register::AX), 0x01);
+}
+
+#[machine_test]
+#[machine_state(Register::AX = 0xFF)]
+fn test_inc_reg(mut machine: Machine) {
+    // INC AX
+    // INC CX
+    machine.run_instruction(Instruction::Inc(Register::AX));
+    machine.run_instruction(Instruction::Inc(Register::CX));
+
+    assert_eq!(machine.get_register(Register::AX), 0x0100);
+    assert_eq!(machine.get_register(Register::CX), 0x01);
+}
+
+#[machine_test]
+#[machine_state(Register::AX = 0xFFFF)]
+fn test_inc_reg_wrapping(mut machine: Machine) {
+    // INC AX
+    machine.run_instruction(Instruction::Inc(Register::AX));
+
+    assert_eq!(machine.get_register(Register::AX), 0x0000);
 }

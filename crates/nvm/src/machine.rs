@@ -161,6 +161,12 @@ impl Machine {
             Instruction::SubAcc16(val) => {
                 self.set_register(Register::AX, self.get_register(Register::AX).wrapping_sub(val));
             }
+            Instruction::Inc(reg) => {
+                self.set_register(reg, self.get_register(reg).wrapping_add(1));
+            }
+            Instruction::Dec(reg) => {
+                self.set_register(reg, self.get_register(reg).wrapping_sub(1));
+            }
         }
     }
 

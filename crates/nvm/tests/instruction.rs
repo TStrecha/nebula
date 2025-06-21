@@ -53,6 +53,16 @@ fn test_opcode_from_byte() {
 
     let noop_opcode = Opcode::try_from(0x2D).unwrap();
     assert_eq!(noop_opcode, Opcode::SUB_ACC_16);
+
+    for x in 0x40..=0x47 {
+        let mov_opcode = Opcode::try_from(x).unwrap();
+        assert_eq!(mov_opcode, Opcode::INC);
+    }
+
+    for x in 0x48..=0x4F {
+        let mov_opcode = Opcode::try_from(x).unwrap();
+        assert_eq!(mov_opcode, Opcode::DEC);
+    }
 }
 
 #[test]
@@ -89,6 +99,9 @@ fn test_opcode_from_byte_returns_ok_only_for_explicitly_supported_opcodes() {
             continue;
         }
         if x == Opcode::SUB_ACC_16 as u8 {
+            continue;
+        }
+        if x >= 0x40 && x <= 0x4F {
             continue;
         }
 
@@ -214,6 +227,15 @@ fn test_instruction_get_size() {
 
     let instr = Instruction::SubAcc16(0);
     assert_eq!(instr.get_instr_size(), 3);
+
+    // ===================
+    // ==   INC & DEC   ==
+    // ===================
+    let instr = Instruction::Inc(Register::AX);
+    assert_eq!(instr.get_instr_size(), 1);
+
+    let instr = Instruction::Dec(Register::AX);
+    assert_eq!(instr.get_instr_size(), 1);
 }
 
 #[test]
@@ -794,4 +816,58 @@ fn test_sub_acc_16_instruction_from_bytes() {
     let instr = Instruction::from_bytes(0x2D, &[0xAA, 0xBB]).unwrap();
     assert_eq!(instr, Instruction::SubAcc16(0xBBAA));
     assert_eq!(instr.get_instr_size(), 3);
+}
+
+#[test]
+fn test_inc_instruction_from_bytes() {
+    let instr = Instruction::from_bytes(0x40, &[]).unwrap();
+    assert_eq!(instr, Instruction::Inc(Register::AX));
+
+    let instr = Instruction::from_bytes(0x41, &[]).unwrap();
+    assert_eq!(instr, Instruction::Inc(Register::CX));
+
+    let instr = Instruction::from_bytes(0x42, &[]).unwrap();
+    assert_eq!(instr, Instruction::Inc(Register::DX));
+
+    let instr = Instruction::from_bytes(0x43, &[]).unwrap();
+    assert_eq!(instr, Instruction::Inc(Register::BX));
+
+    let instr = Instruction::from_bytes(0x44, &[]).unwrap();
+    assert_eq!(instr, Instruction::Inc(Register::SP));
+
+    let instr = Instruction::from_bytes(0x45, &[]).unwrap();
+    assert_eq!(instr, Instruction::Inc(Register::BP));
+
+    let instr = Instruction::from_bytes(0x46, &[]).unwrap();
+    assert_eq!(instr, Instruction::Inc(Register::SI));
+
+    let instr = Instruction::from_bytes(0x47, &[]).unwrap();
+    assert_eq!(instr, Instruction::Inc(Register::DI));
+}
+
+#[test]
+fn test_dec_instruction_from_bytes() {
+    let instr = Instruction::from_bytes(0x48, &[]).unwrap();
+    assert_eq!(instr, Instruction::Dec(Register::AX));
+
+    let instr = Instruction::from_bytes(0x49, &[]).unwrap();
+    assert_eq!(instr, Instruction::Dec(Register::CX));
+
+    let instr = Instruction::from_bytes(0x4A, &[]).unwrap();
+    assert_eq!(instr, Instruction::Dec(Register::DX));
+
+    let instr = Instruction::from_bytes(0x4B, &[]).unwrap();
+    assert_eq!(instr, Instruction::Dec(Register::BX));
+
+    let instr = Instruction::from_bytes(0x4C, &[]).unwrap();
+    assert_eq!(instr, Instruction::Dec(Register::SP));
+
+    let instr = Instruction::from_bytes(0x4D, &[]).unwrap();
+    assert_eq!(instr, Instruction::Dec(Register::BP));
+
+    let instr = Instruction::from_bytes(0x4E, &[]).unwrap();
+    assert_eq!(instr, Instruction::Dec(Register::SI));
+
+    let instr = Instruction::from_bytes(0x4F, &[]).unwrap();
+    assert_eq!(instr, Instruction::Dec(Register::DI));
 }

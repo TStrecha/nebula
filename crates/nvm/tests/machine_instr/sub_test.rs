@@ -243,7 +243,6 @@ fn test_sub_16bit_reg_to_16bit_reg(mut machine: Machine) {
     assert_eq!(machine.get_register(Register::AX), 0x2233 - 0x11);
 }
 
-
 #[machine_test]
 #[machine_state(Register::CX = 0x3335)]
 #[machine_state(Register::AX = 0x3333)]
@@ -252,4 +251,26 @@ fn test_sub_16bit_reg_to_16bit_reg_wrapping(mut machine: Machine) {
     machine.run_instruction(Instruction::Sub(Operand::Register(Register::AX), Operand::Register(Register::CX)));
 
     assert_eq!(machine.get_register(Register::AX), 0xFFFE);
+}
+
+#[machine_test]
+#[machine_state(Register::AX = 0x0100)]
+#[machine_state(Register::CX = 0x01)]
+fn test_dec_reg(mut machine: Machine) {
+    // DEC AX
+    // DEC CX
+    machine.run_instruction(Instruction::Dec(Register::AX));
+    machine.run_instruction(Instruction::Dec(Register::CX));
+
+    assert_eq!(machine.get_register(Register::AX), 0xFF);
+    assert_eq!(machine.get_register(Register::CX), 0x0000);
+}
+
+#[machine_test]
+#[machine_state(Register::AX = 0x0000)]
+fn test_dec_reg_wrapping(mut machine: Machine) {
+    // DEC AX
+    machine.run_instruction(Instruction::Dec(Register::AX));
+
+    assert_eq!(machine.get_register(Register::AX), 0xFFFF);
 }

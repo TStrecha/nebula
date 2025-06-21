@@ -16,6 +16,8 @@ pub enum Opcode {
     SUB = 0x28, // 28 - 2B, SUB r/m, r || SUB r, r/m
     SUB_ACC_8 = 0x2C, // SUB AL, imm8
     SUB_ACC_16 = 0x2D, // SUB AX, imm16
+    INC,
+    DEC,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -43,6 +45,8 @@ pub enum Instruction {
     Sub(Operand, Operand),
     SubAcc8(u8),
     SubAcc16(u16),
+    Inc(Register),
+    Dec(Register),
 }
 
 impl Instruction {
@@ -116,6 +120,14 @@ impl Instruction {
                 let val = (memory_slice[1] as u16) << 8 | memory_slice[0] as u16;
                 Ok(Self::SubAcc16(val))
             }
+            Opcode::INC => {
+                let reg_bits = opcode_byte & 0b00000111;
+                Ok(Self::Inc(Register::from_register_code(reg_bits, false)?))
+            }
+            Opcode::DEC => {
+                let reg_bits = opcode_byte & 0b00000111;
+                Ok(Self::Dec(Register::from_register_code(reg_bits, false)?))
+            }
         }
     }
 
@@ -160,6 +172,8 @@ impl Instruction {
             },
             Self::SubAcc8(_) => 2,
             Self::SubAcc16(_) => 3,
+            Self::Inc(_) => 1,
+            Self::Dec(_) => 1,
         }
     }
 }
@@ -181,6 +195,8 @@ impl TryFrom<u8> for Opcode {
             x if x >= 0x28 && x <= 0x2B => Ok(Self::SUB),
             x if x == Self::SUB_ACC_8 as u8 => Ok(Self::SUB_ACC_8),
             x if x == Self::SUB_ACC_16 as u8 => Ok(Self::SUB_ACC_16),
+            x if x >= 0x40 && x <= 0x47 => Ok(Self::INC),
+            x if x >= 0x48 && x <= 0x4F => Ok(Self::DEC),
             _ => Err(format!("Invalid opcode: {:#x}", value)),
         }
     }
