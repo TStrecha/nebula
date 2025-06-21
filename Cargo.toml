@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/nvm",
+    "crates/nvm", "crates/nvm-test-utils",
     "crates/runtime"
 ]
 resolver = "3"

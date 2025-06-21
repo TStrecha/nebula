@@ -1,9 +1,13 @@
 use std::fs::File;
 use std::io::{BufReader};
 use std::path::PathBuf;
-use nvm::instruction::{MemAddress, Opcode};
+use nvm::instruction::{Opcode};
 use nvm::Machine;
+use nvm::modrm::{MemAddress};
 use nvm::register::Register;
+use nvm_test_utils::{machine_test};
+
+mod machine_instr;
 
 #[test]
 fn test_machine_default() {
@@ -55,6 +59,34 @@ fn test_step() {
     machine.step();
 
     assert_eq!(machine.get_register(Register::IP), 1);
+}
+
+#[machine_test]
+fn test_step_with_dynamic_instruction_size(mut machine: Machine) {
+    // MOV CX, [BX + SI]
+    // MOV CX, [BX + SI + 0x0C]
+    // MOV CX, [BX + SI + 0xD0C]
+    machine.load_program_bytes(&[
+        0x8B, 0b00001000,
+        0x8B, 0b01001000, 0x0C,
+        0x8B, 0b10001000, 0x0C, 0xD]);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::IP), 2);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::IP), 5);
+
+    machine.step();
+    assert_eq!(machine.get_register(Register::IP), 9);
+}
+
+#[test]
+fn test_mem_get_set() {
+    let mut machine = Machine::default();
+
+    machine.memory_mut().data[0] = 0x01;
+    assert_eq!(machine.memory().data[0], 0x01);
 }
 
 #[test]
@@ -158,44 +190,6 @@ fn test_set_16bit_using_8bit_registers() {
 }
 
 #[test]
-fn test_noop_instruction() {
-    let mut machine = Machine::default();
-    machine.load_program_bytes(&[Opcode::NOOP as u8]);
-    machine.step();
-
-    assert_eq!(machine.get_register(Register::IP), 1);
-}
-
-#[test]
-fn test_mov_8bit() {
-    let mut machine = Machine::default();
-
-    // MOV AL, 0xFF
-    // MOV AH, 0x10
-    machine.load_program_bytes(&[0xB0, 0xFF, 0xB4, 0x10]);
-    machine.step();
-    machine.step();
-
-    assert_eq!(machine.get_register(Register::IP), 4);
-    assert_eq!(machine.get_register(Register::AL), 0xFF);
-    assert_eq!(machine.get_register(Register::AH), 0x10);
-
-    assert_eq!(machine.get_register(Register::AX), 0x10FF);
-}
-
-#[test]
-fn test_mov_16bit() {
-    let mut machine = Machine::default();
-
-    // MOV AX, 0xFF10
-    machine.load_program_bytes(&[0xB8, 0x10, 0xFF]);
-    machine.step();
-
-    assert_eq!(machine.get_register(Register::IP), 3);
-    assert_eq!(machine.get_register(Register::AX), 0xFF10);
-}
-
-#[test]
 fn test_get_ptr_from_mem_address() {
     let mut machine = Machine::default();
     machine.set_register(Register::BX, 0xAA);
@@ -267,486 +261,10 @@ fn test_get_ptr_from_mem_address() {
 }
 
 #[test]
-fn test_mov_reg_to_reg() {
+fn test_noop_instruction() {
     let mut machine = Machine::default();
-    machine.set_register(Register::CL, 0xAA);
-    machine.set_register(Register::DL, 0xBB);
-    machine.set_register(Register::CX, 0xAAAA);
-    machine.set_register(Register::DX, 0xBBBB);
-
-    // MOV BL, CL
-    // MOV AL, DL
-    // MOV BX, CX
-    // MOV AX, DX
-    machine.load_program_bytes(&[
-        0x88, 0xCB,
-        0x8A, 0xC2,
-        0x89, 0xCB,
-        0x8B, 0xC2]);
-
-    // 8 bit
+    machine.load_program_bytes(&[Opcode::NOOP as u8]);
     machine.step();
-    machine.step();
-    assert_eq!(machine.get_register(Register::CL), 0xAA);
-    assert_eq!(machine.get_register(Register::BL), 0xAA);
-    assert_eq!(machine.get_register(Register::DL), 0xBB);
-    assert_eq!(machine.get_register(Register::AL), 0xBB);
 
-    // 16 bit
-    machine.step();
-    machine.step();
-    assert_eq!(machine.get_register(Register::CX), 0xAAAA);
-    assert_eq!(machine.get_register(Register::BX), 0xAAAA);
-    assert_eq!(machine.get_register(Register::DX), 0xBBBB);
-    assert_eq!(machine.get_register(Register::AX), 0xBBBB);
-
-    assert_eq!(machine.get_register(Register::IP), 8);
-}
-
-#[test]
-fn test_mov_8bit_reg_to_mem() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-    machine.set_register(Register::CL, 0xAA);
-
-    // MOV [BX + SI], CL
-    machine.load_program_bytes(&[
-        0x88, 0b00001000]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.get_register(Register::CL), 0xAA);
-    assert_eq!(machine.memory().data[0xA + 0xB], 0xAA);
-}
-
-#[test]
-fn test_mov_16bit_reg_to_mem() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-    machine.set_register(Register::CX, 0xAABB);
-
-    // MOV [BX + SI], CX
-    machine.load_program_bytes(&[
-        0x89, 0b00001000]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.get_register(Register::CX), 0xAABB);
-    assert_eq!(machine.memory().data[0xA + 0xB], 0xBB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 1], 0xAA);
-}
-
-#[test]
-fn test_mov_8bit_reg_to_mem_with_1byte_displacement() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-    machine.set_register(Register::CL, 0xAA);
-
-    // MOV [BX + SI + 0xC], CL
-    machine.load_program_bytes(&[
-        0x88, 0b01001000, 0xC]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.get_register(Register::CL), 0xAA);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xC], 0xAA);
-}
-
-#[test]
-fn test_mov_16bit_reg_to_mem_with_1byte_displacement() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-    machine.set_register(Register::CX, 0xAABB);
-
-    // MOV [BX + SI + 0xC], CX
-    machine.load_program_bytes(&[
-        0x89, 0b01001000, 0xC]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.get_register(Register::CX), 0xAABB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xC], 0xBB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xC + 1], 0xAA);
-}
-
-#[test]
-fn test_mov_8bit_reg_to_mem_with_2byte_displacement() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-    machine.set_register(Register::CL, 0xAA);
-
-    // MOV [BX + SI + 0xD0C], CL
-    machine.load_program_bytes(&[
-        0x88, 0b10001000, 0x0C, 0xD]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.get_register(Register::CL), 0xAA);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C], 0xAA);
-}
-
-#[test]
-fn test_mov_16bit_reg_to_mem_with_2byte_displacement() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-    machine.set_register(Register::CX, 0xAABB);
-
-    // MOV [BX + SI + 0xD0C], CX
-    machine.load_program_bytes(&[
-        0x89, 0b10001000, 0x0C, 0xD]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.get_register(Register::CX), 0xAABB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C], 0xBB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C + 1], 0xAA);
-}
-
-#[test]
-fn test_mov_8bit_mem_to_reg() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-
-    machine.memory_mut().data[0xA + 0xB] = 0xAA;
-
-    // MOV CL, [BX + SI]
-    machine.load_program_bytes(&[
-        0x8A, 0b00001000]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.memory().data[0xA + 0xB], 0xAA);
-    assert_eq!(machine.get_register(Register::CL), 0xAA);
-}
-
-#[test]
-fn test_mov_16bit_mem_to_reg() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-
-    machine.memory_mut().data[0xA + 0xB] = 0xAA;
-    machine.memory_mut().data[0xA + 0xB + 1] = 0xBB;
-
-    // MOV CX, [BX + SI]
-    machine.load_program_bytes(&[
-        0x8B, 0b00001000]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.memory().data[0xA + 0xB], 0xAA);
-    assert_eq!(machine.memory().data[0xA + 0xB + 1], 0xBB);
-    assert_eq!(machine.get_register(Register::CX), 0xBBAA);
-}
-
-#[test]
-fn test_mov_8bit_mem_to_reg_with_1byte_displacement() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-
-    machine.memory_mut().data[0xA + 0xB + 0xC] = 0xAA;
-
-    // MOV CL, [BX + SI + 0xC]
-    machine.load_program_bytes(&[
-        0x8A, 0b01001000, 0xC]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xC], 0xAA);
-    assert_eq!(machine.get_register(Register::CL), 0xAA);
-}
-
-#[test]
-fn test_mov_16bit_mem_to_reg_1byte_displacement() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-
-    machine.memory_mut().data[0xA + 0xB + 0xC] = 0xAA;
-    machine.memory_mut().data[0xA + 0xB + 0xC + 1] = 0xBB;
-
-    // MOV CX, [BX + SI + 0xC]
-    machine.load_program_bytes(&[
-        0x8B, 0b01001000, 0xC]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xC], 0xAA);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xC + 1], 0xBB);
-    assert_eq!(machine.get_register(Register::CX), 0xBBAA);
-}
-
-#[test]
-fn test_mov_8bit_mem_to_reg_with_2byte_displacement() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-
-    machine.memory_mut().data[0xA + 0xB + 0xD0C] = 0xAA;
-
-    // MOV CL, [BX + SI + 0xD0C]
-    machine.load_program_bytes(&[
-        0x8A, 0b10001000, 0x0C, 0xD]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C], 0xAA);
-    assert_eq!(machine.get_register(Register::CL), 0xAA);
-}
-
-#[test]
-fn test_mov_16bit_mem_to_reg_2byte_displacement() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::BX, 0xA);
-    machine.set_register(Register::SI, 0xB);
-
-    machine.memory_mut().data[0xA + 0xB + 0xD0C] = 0xAA;
-    machine.memory_mut().data[0xA + 0xB + 0xD0C + 1] = 0xBB;
-
-    // MOV CX, [BX + SI + 0xD0C]
-    machine.load_program_bytes(&[
-        0x8B, 0b10001000, 0x0C, 0xD]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C], 0xAA);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C + 1], 0xBB);
-    assert_eq!(machine.get_register(Register::CX), 0xBBAA);
-}
-
-#[test]
-fn test_mov_8bit_mem_to_reg_and_backwards_keeping_all_values_same() {
-    let mut machine = Machine::default();
-    machine.memory_mut().data[0xA + 0xB + 0xD0C] = 0xAA;
-
-    // MOV BX, 0xA
-    // MOV SI, 0xB
-    // MOV CL, [BX + SI + 0xD0C]
-    // MOV CL, [BX + SI + 0xD0C]
-    // MOV [BX + SI + 0xD0C], CL
-    // MOV [BX + SI + 0xD0C], CL
-    machine.load_program_bytes(&[
-        0xBB, 0x0A, 0x00,
-        0xBE, 0x0B, 0x00,
-        0x8A, 0b10001000, 0x0C, 0xD,
-        0x8A, 0b10001000, 0x0C, 0xD,
-        0x88, 0b10001000, 0x0C, 0xD,
-        0x88, 0b10001000, 0x0C, 0xD,
-    ]);
-
-    machine.step();
-    machine.step();
-    machine.step();
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C], 0xAA);
-    assert_eq!(machine.get_register(Register::CL), 0xAA);
-}
-
-#[test]
-fn test_mov_16bit_mem_to_reg_and_backwards_keeping_all_values_same() {
-    let mut machine = Machine::default();
-    machine.memory_mut().data[0xA + 0xB + 0xD0C] = 0xAA;
-    machine.memory_mut().data[0xA + 0xB + 0xD0C + 1] = 0xBB;
-
-    // MOV BX, 0xA
-    // MOV SI, 0xB
-    // MOV CX, [BX + SI + 0xD0C]
-    // MOV CX, [BX + SI + 0xD0C]
-    // MOV [BX + SI + 0xD0C], CX
-    // MOV [BX + SI + 0xD0C], CX
-    machine.load_program_bytes(&[
-        0xBB, 0x0A, 0x00,
-        0xBE, 0x0B, 0x00,
-        0x8B, 0b10001000, 0x0C, 0xD,
-        0x8B, 0b10001000, 0x0C, 0xD,
-        0x89, 0b10001000, 0x0C, 0xD,
-        0x89, 0b10001000, 0x0C, 0xD,
-    ]);
-
-    machine.step();
-    machine.step();
-    machine.step();
-    machine.step();
-    assert_eq!(machine.get_register(Register::BX), 0xA);
-    assert_eq!(machine.get_register(Register::SI), 0xB);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C], 0xAA);
-    assert_eq!(machine.memory().data[0xA + 0xB + 0xD0C + 1], 0xBB);
-    assert_eq!(machine.get_register(Register::CX), 0xBBAA);
-}
-
-#[test]
-fn test_mov_acc_mem_to_8bit_reg() {
-    let mut machine = Machine::default();
-    machine.memory_mut().data[0x01BB] = 0xCC;
-
-    // MOV AL, [0x01BB]
-    machine.load_program_bytes(&[
-        0xA0, 0xBB, 0x01]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::AL), 0xCC);
-}
-
-#[test]
-fn test_mov_acc_mem_to_16bit_reg() {
-    let mut machine = Machine::default();
-    machine.memory_mut().data[0x01BB] = 0xCC;
-    machine.memory_mut().data[0x01BB + 1] = 0xFF;
-
-    // MOV AX, [0x01BB]
-    machine.load_program_bytes(&[
-        0xA1, 0xBB, 0x01]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::AX), 0xFFCC);
-}
-
-#[test]
-fn test_mov_8bit_reg_to_acc_mem() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::AL, 0xFF);
-
-    // MOV [0x01BB], AL
-    machine.load_program_bytes(&[
-        0xA2, 0xBB, 0x01]);
-
-    machine.step();
-    assert_eq!(machine.memory().data[0x01BB], 0xFF);
-}
-
-#[test]
-fn test_mov_16bit_reg_to_acc_mem() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::AX, 0xFFAA);
-
-    // MOV [0x01BB], AX
-    machine.load_program_bytes(&[
-        0xA3, 0xBB, 0x01]);
-
-    machine.step();
-    assert_eq!(machine.memory().data[0x01BB], 0xAA);
-    assert_eq!(machine.memory().data[0x01BB + 1], 0xFF);
-}
-
-#[test]
-fn test_mov_8bit_acc_mem_to_reg_and_backwards_keeping_all_values_same() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::AL, 0xAA);
-
-    // MOV [0x01BB], AL
-    // MOV [0x01BB], AL
-    // MOV AL, [0x01BB]
-    // MOV AL, [0x01BB]
-    machine.load_program_bytes(&[
-        0xA2, 0xBB, 0x01,
-        0xA2, 0xBB, 0x01,
-        0xA0, 0xBB, 0x01,
-        0xA0, 0xBB, 0x01
-    ]);
-
-    machine.step();
-    machine.step();
-    machine.step();
-    machine.step();
-    assert_eq!(machine.get_register(Register::AL), 0xAA);
-    assert_eq!(machine.memory().data[0x01BB], 0xAA);
-}
-
-#[test]
-fn test_mov_16bit_acc_mem_to_reg_and_backwards_keeping_all_values_same() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::AX, 0xFFAA);
-
-    // MOV [0x01BB], AX
-    // MOV [0x01BB], AX
-    // MOV AX, [0x01BB]
-    // MOV AX, [0x01BB]
-    machine.load_program_bytes(&[
-        0xA3, 0xBB, 0x01,
-        0xA3, 0xBB, 0x01,
-        0xA1, 0xBB, 0x01,
-        0xA1, 0xBB, 0x01
-    ]);
-
-    machine.step();
-    machine.step();
-    machine.step();
-    machine.step();
-    assert_eq!(machine.get_register(Register::AX), 0xFFAA);
-    assert_eq!(machine.memory().data[0x01BB], 0xAA);
-    assert_eq!(machine.memory().data[0x01BB + 1], 0xFF);
-}
-
-#[test]
-fn test_push() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::SP, 0xAA);
-    machine.set_register(Register::AX, 0xFFBB);
-
-    // PUSH AX
-    machine.load_program_bytes(&[0x50]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::AX), 0xFFBB);
-    assert_eq!(machine.get_register(Register::SP), 0xAA - 2);
-    assert_eq!(machine.memory().data[0xAA - 2], 0xBB);
-    assert_eq!(machine.memory().data[0xAA - 1], 0xFF);
-}
-
-#[test]
-fn test_pop() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::SP, 0xAA);
-
-    machine.memory_mut().data[0xAA] = 0xBB;
-    machine.memory_mut().data[0xAA + 1] = 0xAA;
-
-    // POP AX
-    machine.load_program_bytes(&[0x58]);
-
-    machine.step();
-    assert_eq!(machine.get_register(Register::SP), 0xAA + 2);
-    assert_eq!(machine.get_register(Register::AX), 0xAABB);
-    assert_eq!(machine.memory().data[0xAA], 0xBB);
-    assert_eq!(machine.memory().data[0xAA + 1], 0xAA);
-}
-
-#[test]
-fn test_push_pop() {
-    let mut machine = Machine::default();
-    machine.set_register(Register::SP, 0xAA);
-    machine.set_register(Register::AX, 0xFFBB);
-
-    // PUSH AX
-    // POP AX
-    machine.load_program_bytes(&[0x50, 0x58]);
-
-    machine.step();
-    machine.step();
-    assert_eq!(machine.get_register(Register::SP), 0xAA);
-    assert_eq!(machine.get_register(Register::AX), 0xFFBB);
-    assert_eq!(machine.memory().data[0xAA - 2], 0xBB);
-    assert_eq!(machine.memory().data[0xAA - 1], 0xFF);
+    assert_eq!(machine.get_register(Register::IP), 1);
 }

@@ -1,14 +1,15 @@
 [package]
-name = "runtime"
+name = "nvm-test-utils"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-nvm = { path = "../nvm" }
+syn = { version = "2", features = ["full", "visit"] }
+quote = "1"
+proc-macro2 = "1"
 
-[[bin]]
-name = "nvm"
-path = "src/main.rs"
+[lib]
+proc-macro = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
