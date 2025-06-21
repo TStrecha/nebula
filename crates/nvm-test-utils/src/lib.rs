@@ -2,8 +2,8 @@ use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Expr, ExprAssign, ExprBinary, ExprLit, ItemFn, Lit};
 
-#[cfg(not(tarpaulin_include))] //TODO: Create tests for this macro
 #[proc_macro_attribute]
+#[cfg(not(tarpaulin_include))] //TODO: Create tests for this macro
 pub fn machine_test(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = syn::parse::<ItemFn>(input).unwrap();
     let fn_name = &input_fn.sig.ident;
@@ -48,7 +48,6 @@ pub fn machine_test(_args: TokenStream, input: TokenStream) -> TokenStream {
 
     let mut inner_fn = input_fn.clone();
     inner_fn.sig.ident = inner_name.clone();
-    inner_fn.attrs.clear();
 
     let output = quote! {
         #inner_fn
@@ -64,6 +63,7 @@ pub fn machine_test(_args: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
+#[cfg(not(tarpaulin_include))] //TODO: Create tests for this macro
 pub fn machine_state(_args: TokenStream, input: TokenStream) -> TokenStream {
     input
 }

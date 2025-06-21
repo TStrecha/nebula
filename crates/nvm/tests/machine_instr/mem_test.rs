@@ -1,7 +1,7 @@
 use nvm::instruction::Instruction;
 use nvm::Machine;
 use nvm::register::Register;
-use nvm_test_utils::{machine_test};
+use nvm_test_utils::{machine_test, machine_state};
 
 #[machine_test]
 #[machine_state(Register::SP = 0xAA)]

@@ -2,7 +2,7 @@ use nvm::instruction::{Instruction, MovMemOperand};
 use nvm::Machine;
 use nvm::modrm::{MemAddress, Operand};
 use nvm::register::Register;
-use nvm_test_utils::machine_test;
+use nvm_test_utils::{machine_test, machine_state};
 
 #[machine_test]
 fn test_mov_8bit(mut machine: Machine) {
@@ -383,7 +383,6 @@ fn test_mov_acc_mem_to_8bit_reg(mut machine: Machine) {
     // MOV AL, [0x01BB]
     machine.run_instruction(Instruction::MovAccMem(MovMemOperand::Register(Register::AL), MovMemOperand::MemoryPtr(0x01BB)));
 
-    machine.step();
     assert_eq!(machine.get_register(Register::AL), 0xCC);
 }
 

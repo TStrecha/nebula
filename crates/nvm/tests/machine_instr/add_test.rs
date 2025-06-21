@@ -2,7 +2,7 @@ use nvm::instruction::Instruction;
 use nvm::Machine;
 use nvm::modrm::{MemAddress, Operand};
 use nvm::register::Register;
-use nvm_test_utils::{machine_test};
+use nvm_test_utils::{machine_test, machine_state};
 
 #[machine_test]
 #[machine_state(Register::AL = 0x0A)]
@@ -10,7 +10,6 @@ fn test_add_acc_8(mut machine: Machine) {
     // ADD AL, 0x02
     machine.run_instruction(Instruction::AddAcc8(0x02));
 
-    machine.step();
     assert_eq!(machine.get_register(Register::AL), 0x0A + 0x02);
 }
 
@@ -86,6 +85,40 @@ fn test_add_mem_to_16bit_reg(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0
+    })));
+
+    assert_eq!(machine.get_register(Register::AX), 0x2233 + 0x11);
+}
+
+#[machine_test]
+#[machine_state(Register::BX = 0x11)]
+#[machine_state(Register::SI = 0x22)]
+#[machine_state(Register::AX = 0x2233)]
+#[machine_state(0x11 + 0x22 + 0x33 = 0x11)]
+fn test_add_mem_to_16bit_reg_1byte_displacement(mut machine: Machine) {
+    // ADD AX, [BX + SI]
+    machine.run_instruction(Instruction::Add(Operand::Register(Register::AX), Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0x33,
+        displacement_size: 1
+    })));
+
+    assert_eq!(machine.get_register(Register::AX), 0x2233 + 0x11);
+}
+
+#[machine_test]
+#[machine_state(Register::BX = 0x11)]
+#[machine_state(Register::SI = 0x22)]
+#[machine_state(Register::AX = 0x2233)]
+#[machine_state(0x11 + 0x22 + 0x3333 = 0x11)]
+fn test_add_mem_to_16bit_reg_2byte_displacement(mut machine: Machine) {
+    // ADD AX, [BX + SI]
+    machine.run_instruction(Instruction::Add(Operand::Register(Register::AX), Operand::Memory(MemAddress {
+        base: Some(Register::BX),
+        index: Some(Register::SI),
+        displacement: 0x3333,
+        displacement_size: 2
     })));
 
     assert_eq!(machine.get_register(Register::AX), 0x2233 + 0x11);
