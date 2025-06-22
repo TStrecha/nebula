@@ -261,6 +261,17 @@ fn test_get_ptr_from_mem_address() {
 }
 
 #[test]
+fn test_dump_self() {
+    let mut machine = Machine::default();
+    machine.set_register(Register::AX, 0xAA);
+    machine.set_register(Register::CX, 0xAB);
+    machine.set_register(Register::DX, 0xAC);
+    machine.set_register(Register::BX, 0xAD);
+    
+    machine.dump_self();
+}
+
+#[test]
 fn test_noop_instruction() {
     let mut machine = Machine::default();
     machine.load_program_bytes(&[Opcode::NOOP as u8]);

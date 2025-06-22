@@ -82,6 +82,72 @@ impl Machine {
             Instruction::OrAcc16(val) => {
                 self.set_register(Register::AX, self.get_register(Register::AX) | val);
             }
+            Instruction::Mul8(mlt_src) => {
+                let multiplier = match mlt_src {
+                    Operand::Register(reg) => {
+                        self.get_register(reg)
+                    }
+                    Operand::Memory(addr) => {
+                        self.memory.read_byte(self.get_ptr_from_mem_address(addr)) as u16
+                    }
+                };
+
+                let al = self.get_register(Register::AL) as u8;
+                let product = (al as u16) * multiplier;
+
+                self.set_register(Register::AL, product & 0x00FF);
+                self.set_register(Register::AH, product >> 8);
+            }
+            Instruction::Mul16(mlt_src) => {
+                let multiplier = match mlt_src {
+                    Operand::Register(reg) => {
+                        self.get_register(reg)
+                    }
+                    Operand::Memory(addr) => {
+                        self.memory.read_word(self.get_ptr_from_mem_address(addr))
+                    }
+                };
+
+                let ax = self.get_register(Register::AX);
+                let product = (ax as u32) * (multiplier as u32);
+
+                self.set_register(Register::AX, (product & 0xFFFF) as u16);
+                self.set_register(Register::DX, (product >> 16) as u16);
+            }
+            Instruction::Div8(div_src) => {
+                let dividend = self.get_register(Register::AX);
+                let divisor = match div_src {
+                    Operand::Register(reg) => {
+                        self.get_register(reg)
+                    }
+                    Operand::Memory(addr) => {
+                        self.memory.read_word(self.get_ptr_from_mem_address(addr))
+                    }
+                };
+
+                let quotient = dividend / divisor;
+                let remainder = dividend % divisor;
+
+                self.set_register(Register::AL, quotient);
+                self.set_register(Register::AH, remainder);
+            }
+            Instruction::Div16(div_src) => {
+                let dividend = (self.get_register(Register::DX) as u32) << 16 | self.get_register(Register::AX) as u32;
+                let divisor = match div_src {
+                    Operand::Register(reg) => {
+                        self.get_register(reg)
+                    }
+                    Operand::Memory(addr) => {
+                        self.memory.read_word(self.get_ptr_from_mem_address(addr))
+                    }
+                };
+
+                let quotient = dividend / divisor as u32;
+                let remainder = dividend % divisor as u32;
+
+                self.set_register(Register::AX, quotient as u16);
+                self.set_register(Register::DX, remainder as u16);
+            }
         }
     }
 
