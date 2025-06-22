@@ -27,6 +27,9 @@ pub enum Opcode {
     OR = 0x08, // 08 - 0B, OR r/m, r || OR r, r/m
     OR_ACC_8 = 0x0C, // OR AL, imm8
     OR_ACC_16 = 0x0D, // OR AX, imm16
+
+    JMP = 0xE9,
+    JMP_FAR = 0xEA,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -66,6 +69,8 @@ pub enum Instruction {
     Or(Operand, Operand),
     OrAcc8(u8),
     OrAcc16(u16),
+    JmpNear(i16),
+    JmpFar(u16, u16),
 }
 
 impl Instruction {
@@ -185,6 +190,15 @@ impl Instruction {
                     Ok(Self::Mul16(operand))
                 }
             }
+            Opcode::JMP => {
+                let offset = (memory_slice[1] as i16) << 8 | memory_slice[0] as i16;
+                Ok(Self::JmpNear(offset))
+            }
+            Opcode::JMP_FAR => {
+                let offset = (memory_slice[1] as u16) << 8 | memory_slice[0] as u16;
+                let segment = (memory_slice[3] as u16) << 8 | memory_slice[2] as u16;
+                Ok(Self::JmpFar(segment, offset))
+            }
         }
     }
 
@@ -215,6 +229,7 @@ impl Instruction {
                 } else {
                     0
                 },
+            Self::JmpNear(_) | Self::JmpFar(..) => unreachable!(),
         }
     }
 }
@@ -246,6 +261,8 @@ impl TryFrom<u8> for Opcode {
             x if x >= 0x08 && x <= 0x0B => Ok(Self::OR),
             x if x == Self::OR_ACC_8 as u8 => Ok(Self::OR_ACC_8),
             x if x == Self::OR_ACC_16 as u8 => Ok(Self::OR_ACC_16),
+            x if x == Self::JMP as u8 => Ok(Self::JMP),
+            x if x == Self::JMP_FAR as u8 => Ok(Self::JMP_FAR),
             _ => Err(format!("Invalid opcode: {:#x}", value)),
         }
     }

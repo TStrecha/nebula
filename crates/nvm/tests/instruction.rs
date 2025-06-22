@@ -91,6 +91,12 @@ fn test_opcode_from_byte() {
 
     let noop_opcode = Opcode::try_from(0xF7).unwrap();
     assert_eq!(noop_opcode, Opcode::MUL_DIV_16);
+
+    let noop_opcode = Opcode::try_from(0xE9).unwrap();
+    assert_eq!(noop_opcode, Opcode::JMP);
+
+    let noop_opcode = Opcode::try_from(0xEA).unwrap();
+    assert_eq!(noop_opcode, Opcode::JMP_FAR);
 }
 
 #[test]
@@ -154,6 +160,12 @@ fn test_opcode_from_byte_returns_ok_only_for_explicitly_supported_opcodes() {
             continue;
         }
         if x == Opcode::MUL_DIV_16 as u8 {
+            continue;
+        }
+        if x == Opcode::JMP as u8 {
+            continue;
+        }
+        if x == Opcode::JMP_FAR as u8 {
             continue;
         }
 
@@ -1415,4 +1427,19 @@ fn test_div_16_instruction_from_bytes() {
         displacement: 0xAAFF,
         displacement_size: 2,
     })));
+}
+
+#[test]
+fn test_jmp_near_instruction_from_bytes() {
+    let instr = Instruction::from_bytes(0xE9, &[0xFF, 0x0A]).unwrap();
+    assert_eq!(instr, Instruction::JmpNear(0x0AFF));
+
+    let instr = Instruction::from_bytes(0xE9, &[0xFF, 0xAA]).unwrap();
+    assert_eq!(instr, Instruction::JmpNear(-0x5501));
+}
+
+#[test]
+fn test_jmp_far_instruction_from_bytes() {
+    let instr = Instruction::from_bytes(0xEA, &[0xAA, 0xBB, 0xCC, 0xDD]).unwrap();
+    assert_eq!(instr, Instruction::JmpFar(0xDDCC, 0xBBAA));
 }

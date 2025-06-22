@@ -5,7 +5,9 @@ use crate::register::Register;
 
 impl Machine {
 
-    pub fn run_instruction(&mut self, instruction: Instruction) {
+    pub fn run_instruction(&mut self, instruction: Instruction) -> bool {
+        let mut jumped = false;
+
         match instruction {
             Instruction::Noop => {},
             Instruction::MovImm8(register, val) => self.set_register(register, val as u16),
@@ -148,7 +150,21 @@ impl Machine {
                 self.set_register(Register::AX, quotient as u16);
                 self.set_register(Register::DX, remainder as u16);
             }
+            Instruction::JmpNear(offset) => {
+                jumped = true;
+
+                let ip = self.get_register(Register::IP) as i16;
+                self.set_register(Register::IP, ip.wrapping_add(offset) as u16);
+            }
+            Instruction::JmpFar(segment, offset) => {
+                jumped = true;
+
+                self.set_register(Register::CS, segment);
+                self.set_register(Register::IP, offset);
+            }
         }
+
+        jumped
     }
 
     fn apply_binary_op<F>(&mut self, dest: Operand, src: Operand, op: F)
