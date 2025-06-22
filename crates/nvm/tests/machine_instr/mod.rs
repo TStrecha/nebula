@@ -6,3 +6,4 @@ pub mod and_test;
 pub mod or_test;
 pub mod mul_test;
 pub mod div_test;
+pub mod jump_test;

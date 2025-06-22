@@ -32,9 +32,11 @@ impl Machine {
         let instruction = Instruction::from_bytes(opcode_byte, &self.memory.data[ip + 1..]).unwrap();
         println!("Running instruction: {:?}", instruction);
 
-        self.run_instruction(instruction);
+        let jumped = self.run_instruction(instruction);
 
-        self.set_register(Register::IP, self.get_register(Register::IP) + instruction.get_instr_size());
+        if !jumped {
+            self.set_register(Register::IP, self.get_register(Register::IP) + instruction.get_instr_size());
+        }
     }
 
     pub fn get_ptr_from_mem_address(&self, mem_addr: MemAddress) -> usize {

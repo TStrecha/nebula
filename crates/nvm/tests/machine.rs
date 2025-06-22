@@ -267,7 +267,7 @@ fn test_dump_self() {
     machine.set_register(Register::CX, 0xAB);
     machine.set_register(Register::DX, 0xAC);
     machine.set_register(Register::BX, 0xAD);
-    
+
     machine.dump_self();
 }
 
@@ -278,4 +278,13 @@ fn test_noop_instruction() {
     machine.step();
 
     assert_eq!(machine.get_register(Register::IP), 1);
+}
+
+#[test]
+fn test_jmp_not_increasing_ip() {
+    let mut machine = Machine::default();
+    machine.load_program_bytes(&[Opcode::JMP as u8, 0xFF, 0xFF]);
+    machine.step();
+
+    assert_eq!(machine.get_register(Register::IP), 0xFFFF);
 }
