@@ -52,7 +52,7 @@ fn test_sub_8bit_reg_to_mem(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0
-    }), Operand::Register(Register::AL)));
+    }), Operand::Register(Register::AL), true));
 
     assert_eq!(machine.memory().data[0x11 + 0x22], 0x55 - 0x22);
 }
@@ -69,7 +69,7 @@ fn test_sub_8bit_reg_to_mem_wrapping(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0
-    }), Operand::Register(Register::AL)));
+    }), Operand::Register(Register::AL), true));
 
     assert_eq!(machine.memory().data[0x11 + 0x22], 0xFE);
 }
@@ -87,7 +87,7 @@ fn test_sub_16bit_reg_to_mem(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0
-    }), Operand::Register(Register::AX)));
+    }), Operand::Register(Register::AX), false));
 
     assert_eq!(machine.memory().read_word(0x11 + 0x22), 0x4422 - 0x1111);
 }
@@ -105,7 +105,7 @@ fn test_sub_16bit_reg_to_mem_wrapping(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0
-    }), Operand::Register(Register::AX)));
+    }), Operand::Register(Register::AX), false));
 
     assert_eq!(machine.memory().read_word(0x11 + 0x22), 0xFFFE);
 }
@@ -122,7 +122,7 @@ fn test_sub_mem_to_8bit_reg(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0
-    })));
+    }), true));
 
     assert_eq!(machine.get_register(Register::AL), 0x22 - 0x11);
 }
@@ -139,7 +139,7 @@ fn test_sub_mem_to_8bit_reg_wrapping(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0
-    })));
+    }), true));
 
     assert_eq!(machine.get_register(Register::AL), 0xFE);
 }
@@ -156,7 +156,7 @@ fn test_sub_mem_to_16bit_reg(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0
-    })));
+    }), false));
 
     assert_eq!(machine.get_register(Register::AX), 0x2233 - 0x11);
 }
@@ -174,7 +174,7 @@ fn test_sub_mem_to_16bit_reg_wrapping(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0
-    })));
+    }), false));
 
     assert_eq!(machine.get_register(Register::AX), 0xFFFE);
 }
@@ -191,7 +191,7 @@ fn test_sub_mem_to_16bit_reg_1byte_displacement(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0x33,
         displacement_size: 1
-    })));
+    }), false));
 
     assert_eq!(machine.get_register(Register::AX), 0x2233 - 0x11);
 }
@@ -208,7 +208,7 @@ fn test_sub_mem_to_16bit_reg_2byte_displacement(mut machine: Machine) {
         index: Some(Register::SI),
         displacement: 0x3333,
         displacement_size: 2
-    })));
+    }), false));
 
     assert_eq!(machine.get_register(Register::AX), 0x2233 - 0x11);
 }
@@ -218,7 +218,7 @@ fn test_sub_mem_to_16bit_reg_2byte_displacement(mut machine: Machine) {
 #[machine_state(Register::AL = 0x22)]
 fn test_sub_8bit_reg_to_8bit_reg(mut machine: Machine) {
     // SUB AL, CL
-    machine.run_instruction(Instruction::Sub(Operand::Register(Register::AL), Operand::Register(Register::CL)));
+    machine.run_instruction(Instruction::Sub(Operand::Register(Register::AL), Operand::Register(Register::CL), true));
 
     assert_eq!(machine.get_register(Register::AL), 0x22 - 0x11);
 }
@@ -228,7 +228,7 @@ fn test_sub_8bit_reg_to_8bit_reg(mut machine: Machine) {
 #[machine_state(Register::AL = 0x22)]
 fn test_sub_8bit_reg_to_8bit_reg_wrapping(mut machine: Machine) {
     // SUB AL, CL
-    machine.run_instruction(Instruction::Sub(Operand::Register(Register::AL), Operand::Register(Register::CL)));
+    machine.run_instruction(Instruction::Sub(Operand::Register(Register::AL), Operand::Register(Register::CL), true));
 
     assert_eq!(machine.get_register(Register::AL), 0xFE);
 }
@@ -238,7 +238,7 @@ fn test_sub_8bit_reg_to_8bit_reg_wrapping(mut machine: Machine) {
 #[machine_state(Register::AX = 0x2233)]
 fn test_sub_16bit_reg_to_16bit_reg(mut machine: Machine) {
     // SUB AX, CX
-    machine.run_instruction(Instruction::Sub(Operand::Register(Register::AX), Operand::Register(Register::CX)));
+    machine.run_instruction(Instruction::Sub(Operand::Register(Register::AX), Operand::Register(Register::CX), false));
 
     assert_eq!(machine.get_register(Register::AX), 0x2233 - 0x11);
 }
@@ -248,7 +248,7 @@ fn test_sub_16bit_reg_to_16bit_reg(mut machine: Machine) {
 #[machine_state(Register::AX = 0x3333)]
 fn test_sub_16bit_reg_to_16bit_reg_wrapping(mut machine: Machine) {
     // SUB AX, CX
-    machine.run_instruction(Instruction::Sub(Operand::Register(Register::AX), Operand::Register(Register::CX)));
+    machine.run_instruction(Instruction::Sub(Operand::Register(Register::AX), Operand::Register(Register::CX), false));
 
     assert_eq!(machine.get_register(Register::AX), 0xFFFE);
 }

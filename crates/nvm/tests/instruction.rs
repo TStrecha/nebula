@@ -97,6 +97,15 @@ fn test_opcode_from_byte() {
 
     let noop_opcode = Opcode::try_from(0xEA).unwrap();
     assert_eq!(noop_opcode, Opcode::JMP_FAR);
+
+    let noop_opcode = Opcode::try_from(0xEB).unwrap();
+    assert_eq!(noop_opcode, Opcode::JMP_SHORT);
+
+    let noop_opcode = Opcode::try_from(0x74).unwrap();
+    assert_eq!(noop_opcode, Opcode::JZ);
+
+    let noop_opcode = Opcode::try_from(0x75).unwrap();
+    assert_eq!(noop_opcode, Opcode::JNZ);
 }
 
 #[test]
@@ -168,6 +177,15 @@ fn test_opcode_from_byte_returns_ok_only_for_explicitly_supported_opcodes() {
         if x == Opcode::JMP_FAR as u8 {
             continue;
         }
+        if x == Opcode::JMP_SHORT as u8 {
+            continue;
+        }
+        if x == Opcode::JZ as u8 {
+            continue;
+        }
+        if x == Opcode::JNZ as u8 {
+            continue;
+        }
 
         let result = Opcode::try_from(x);
         assert!(result.is_err())
@@ -235,17 +253,17 @@ fn test_instruction_get_size() {
     // ===================
     // ==      ADD      ==
     // ===================
-    let instr = Instruction::Add(Operand::Register(Register::AX), Operand::Memory(MemAddress::default()));
+    let instr = Instruction::Add(Operand::Register(Register::AX), Operand::Memory(MemAddress::default()), false);
     assert_eq!(instr.get_instr_size(), 2);
     let instr = Instruction::Add(Operand::Register(Register::AX), Operand::Memory(MemAddress {
         displacement_size: 2,
         ..Default::default()
-    }));
+    }), false);
     assert_eq!(instr.get_instr_size(), 4);
     let instr = Instruction::Add(Operand::Memory(MemAddress {
         displacement_size: 3,
         ..Default::default()
-    }), Operand::Register(Register::AX));
+    }), Operand::Register(Register::AX), false);
     assert_eq!(instr.get_instr_size(), 5);
     let instr = Instruction::Add(Operand::Memory(MemAddress {
         displacement_size: 2,
@@ -253,7 +271,7 @@ fn test_instruction_get_size() {
     }), Operand::Memory(MemAddress {
         displacement_size: 3,
         ..Default::default()
-    }));
+    }), false);
     assert_eq!(instr.get_instr_size(), 7);
 
     let instr = Instruction::AddAcc8(0);
@@ -265,17 +283,17 @@ fn test_instruction_get_size() {
     // ===================
     // ==      SUB      ==
     // ===================
-    let instr = Instruction::Sub(Operand::Register(Register::AX), Operand::Memory(MemAddress::default()));
+    let instr = Instruction::Sub(Operand::Register(Register::AX), Operand::Memory(MemAddress::default()), false);
     assert_eq!(instr.get_instr_size(), 2);
     let instr = Instruction::Sub(Operand::Register(Register::AX), Operand::Memory(MemAddress {
         displacement_size: 2,
         ..Default::default()
-    }));
+    }), false);
     assert_eq!(instr.get_instr_size(), 4);
     let instr = Instruction::Sub(Operand::Memory(MemAddress {
         displacement_size: 3,
         ..Default::default()
-    }), Operand::Register(Register::AX));
+    }), Operand::Register(Register::AX), false);
     assert_eq!(instr.get_instr_size(), 5);
     let instr = Instruction::Sub(Operand::Memory(MemAddress {
         displacement_size: 2,
@@ -283,7 +301,7 @@ fn test_instruction_get_size() {
     }), Operand::Memory(MemAddress {
         displacement_size: 3,
         ..Default::default()
-    }));
+    }), false);
     assert_eq!(instr.get_instr_size(), 7);
 
     let instr = Instruction::SubAcc8(0);
@@ -416,6 +434,21 @@ fn test_instruction_get_size() {
         ..Default::default()
     }));
     assert_eq!(instr.get_instr_size(), 5);
+
+    // ===================
+    // ==     JUMP      ==
+    // ===================
+
+    let instr = Instruction::JmpShort(0);
+    assert_eq!(instr.get_instr_size(), 2);
+    let instr = Instruction::JmpNear(0);
+    assert_eq!(instr.get_instr_size(), 3);
+    let instr = Instruction::JmpFar(0, 0);
+    assert_eq!(instr.get_instr_size(), 4);
+    let instr = Instruction::Jz(0);
+    assert_eq!(instr.get_instr_size(), 2);
+    let instr = Instruction::Jnz(0);
+    assert_eq!(instr.get_instr_size(), 2);
 }
 
 #[test]
@@ -776,7 +809,7 @@ fn test_push_pop_instruction_from_bytes() {
 fn test_add_instruction_from_bytes() {
     // r/m8 <- r8
     let instr = Instruction::from_bytes(0x00, &[0b11000000]).unwrap();
-    assert_eq!(instr, Instruction::Add(Operand::Register(Register::AL), Operand::Register(Register::AL)));
+    assert_eq!(instr, Instruction::Add(Operand::Register(Register::AL), Operand::Register(Register::AL), true));
     assert_eq!(instr.get_instr_size(), 2);
 
     // r/m8 <- r8
@@ -786,7 +819,7 @@ fn test_add_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0,
-    }), Operand::Register(Register::AL)));
+    }), Operand::Register(Register::AL), true));
     assert_eq!(instr.get_instr_size(), 2);
 
     // r/m16 <- r16
@@ -796,7 +829,7 @@ fn test_add_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0,
-    }), Operand::Register(Register::AX)));
+    }), Operand::Register(Register::AX), false));
     assert_eq!(instr.get_instr_size(), 2);
 
     // r8 <- r/m8
@@ -806,7 +839,7 @@ fn test_add_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0,
-    })));
+    }), true));
     assert_eq!(instr.get_instr_size(), 2);
 
     // r16 <- r/m16
@@ -816,7 +849,7 @@ fn test_add_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0,
-    })));
+    }), false));
     assert_eq!(instr.get_instr_size(), 2);
 
     // DISPLACEMENT
@@ -827,7 +860,7 @@ fn test_add_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0xBBFF,
         displacement_size: 2,
-    }), Operand::Register(Register::AL)));
+    }), Operand::Register(Register::AL), true));
     assert_eq!(instr.get_instr_size(), 4);
 
     // r/m16 <- r16
@@ -837,7 +870,7 @@ fn test_add_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0xBBFF,
         displacement_size: 2,
-    }), Operand::Register(Register::AX)));
+    }), Operand::Register(Register::AX), false));
     assert_eq!(instr.get_instr_size(), 4);
 
     // r8 <- r/m8
@@ -847,7 +880,7 @@ fn test_add_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0xBBFF,
         displacement_size: 2,
-    })));
+    }), true));
     assert_eq!(instr.get_instr_size(), 4);
 
     // r16 <- r/m16
@@ -857,7 +890,7 @@ fn test_add_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0xBBFF,
         displacement_size: 2,
-    })));
+    }), false));
     assert_eq!(instr.get_instr_size(), 4);
 
     // r16 <- r/m16
@@ -867,7 +900,7 @@ fn test_add_instruction_from_bytes() {
         index: None,
         displacement: 0xBBFF,
         displacement_size: 2,
-    })));
+    }), false));
     assert_eq!(instr.get_instr_size(), 4);
 }
 
@@ -889,7 +922,7 @@ fn test_add_acc_16_instruction_from_bytes() {
 fn test_sub_instruction_from_bytes() {
     // r/m8 <- r8
     let instr = Instruction::from_bytes(0x28, &[0b11000000]).unwrap();
-    assert_eq!(instr, Instruction::Sub(Operand::Register(Register::AL), Operand::Register(Register::AL)));
+    assert_eq!(instr, Instruction::Sub(Operand::Register(Register::AL), Operand::Register(Register::AL), true));
     assert_eq!(instr.get_instr_size(), 2);
 
     // r/m8 <- r8
@@ -899,7 +932,7 @@ fn test_sub_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0,
-    }), Operand::Register(Register::AL)));
+    }), Operand::Register(Register::AL), true));
     assert_eq!(instr.get_instr_size(), 2);
 
     // r/m16 <- r16
@@ -909,7 +942,7 @@ fn test_sub_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0,
-    }), Operand::Register(Register::AX)));
+    }), Operand::Register(Register::AX), false));
     assert_eq!(instr.get_instr_size(), 2);
 
     // r8 <- r/m8
@@ -919,7 +952,7 @@ fn test_sub_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0,
-    })));
+    }), true));
     assert_eq!(instr.get_instr_size(), 2);
 
     // r16 <- r/m16
@@ -929,7 +962,7 @@ fn test_sub_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0,
         displacement_size: 0,
-    })));
+    }), false));
     assert_eq!(instr.get_instr_size(), 2);
 
     // DISPLACEMENT
@@ -940,7 +973,7 @@ fn test_sub_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0xBBFF,
         displacement_size: 2,
-    }), Operand::Register(Register::AL)));
+    }), Operand::Register(Register::AL), true));
     assert_eq!(instr.get_instr_size(), 4);
 
     // r/m16 <- r16
@@ -950,7 +983,7 @@ fn test_sub_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0xBBFF,
         displacement_size: 2,
-    }), Operand::Register(Register::AX)));
+    }), Operand::Register(Register::AX), false));
     assert_eq!(instr.get_instr_size(), 4);
 
     // r8 <- r/m8
@@ -960,7 +993,7 @@ fn test_sub_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0xBBFF,
         displacement_size: 2,
-    })));
+    }), true));
     assert_eq!(instr.get_instr_size(), 4);
 
     // r16 <- r/m16
@@ -970,7 +1003,7 @@ fn test_sub_instruction_from_bytes() {
         index: Some(Register::SI),
         displacement: 0xBBFF,
         displacement_size: 2,
-    })));
+    }), false));
     assert_eq!(instr.get_instr_size(), 4);
 
     // r16 <- r/m16
@@ -980,7 +1013,7 @@ fn test_sub_instruction_from_bytes() {
         index: None,
         displacement: 0xBBFF,
         displacement_size: 2,
-    })));
+    }), false));
     assert_eq!(instr.get_instr_size(), 4);
 }
 
@@ -1442,4 +1475,23 @@ fn test_jmp_near_instruction_from_bytes() {
 fn test_jmp_far_instruction_from_bytes() {
     let instr = Instruction::from_bytes(0xEA, &[0xAA, 0xBB, 0xCC, 0xDD]).unwrap();
     assert_eq!(instr, Instruction::JmpFar(0xDDCC, 0xBBAA));
+}
+
+#[test]
+fn test_jz_near_instruction_from_bytes() {
+    let instr = Instruction::from_bytes(0x74, &[0b01111111]).unwrap();
+    assert_eq!(instr, Instruction::Jz(0b01111111));
+
+    let instr = Instruction::from_bytes(0x74, &[0xFF]).unwrap();
+    assert_eq!(instr, Instruction::Jz(-1));
+}
+
+
+#[test]
+fn test_jnz_near_instruction_from_bytes() {
+    let instr = Instruction::from_bytes(0x75, &[0b01111111]).unwrap();
+    assert_eq!(instr, Instruction::Jnz(0b01111111));
+
+    let instr = Instruction::from_bytes(0x75, &[0xFF]).unwrap();
+    assert_eq!(instr, Instruction::Jnz(-1));
 }

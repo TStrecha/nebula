@@ -14,7 +14,7 @@ pub enum Operand {
     Memory(MemAddress),
 }
 
-pub fn decode_operands_from_mod_rm_opcode(opcode_byte: u8, mem_slice: &[u8]) -> Result<(Operand, Operand), String> {
+pub fn decode_operands_from_mod_rm_opcode(opcode_byte: u8, mem_slice: &[u8]) -> Result<(Operand, Operand, bool), String> {
     let is_rm_target = opcode_byte & 0b00000010 == 0; // true if destination should be mod r/m
     let is_8_bit = opcode_byte & 0b00000001 == 0; // true if operating with 8bit registers
 
@@ -28,18 +28,18 @@ pub fn decode_operands_from_mod_rm_opcode(opcode_byte: u8, mem_slice: &[u8]) -> 
     if is_reg_only(mod_bits) {
         let rm = Register::from_register_code(rm_bits, is_8_bit)?;
         return if is_rm_target {
-            Ok((Operand::Register(rm), Operand::Register(reg)))
+            Ok((Operand::Register(rm), Operand::Register(reg), is_8_bit))
         } else {
-            Ok((Operand::Register(reg), Operand::Register(rm)))
+            Ok((Operand::Register(reg), Operand::Register(rm), is_8_bit))
         }
     }
 
     let rm_operand = extract_memory_address_operand(rm_bits, mod_bits, mem_slice);
 
     if is_rm_target {
-        Ok((rm_operand, Operand::Register(reg)))
+        Ok((rm_operand, Operand::Register(reg), is_8_bit))
     } else {
-        Ok((Operand::Register(reg), rm_operand))
+        Ok((Operand::Register(reg), rm_operand, is_8_bit))
     }
 }
 

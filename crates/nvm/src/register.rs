@@ -6,7 +6,7 @@ pub enum Register {
     CX,
     DX,
     BX,
-    
+
     SP,
     BP,
     SI,
@@ -73,4 +73,16 @@ impl Register {
             _ => Err(format!("Invalid register code: {}", code)),
         }
     }
+}
+
+pub enum Flag {
+    CARRY = 0b00000001,
+    PARITY = 0b00000100,
+    AUXILIARY = 0b00010000,
+    ZERO = 0b01000000,
+    SIGN = 0b10000000,
+    TRAP = 0b00000001_00000000,
+    INTERRUPT = 0b00000010_00000000,
+    DIRECTION = 0b00000100_00000000,
+    OVERFLOW = 0b00001000_00000000,
 }

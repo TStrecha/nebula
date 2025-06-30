@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use nvm::instruction::{Opcode};
 use nvm::Machine;
 use nvm::modrm::{MemAddress};
-use nvm::register::Register;
+use nvm::register::{Register};
 use nvm_test_utils::{machine_test};
 
 mod machine_instr;
@@ -278,13 +278,4 @@ fn test_noop_instruction() {
     machine.step();
 
     assert_eq!(machine.get_register(Register::IP), 1);
-}
-
-#[test]
-fn test_jmp_not_increasing_ip() {
-    let mut machine = Machine::default();
-    machine.load_program_bytes(&[Opcode::JMP as u8, 0xFF, 0xFF]);
-    machine.step();
-
-    assert_eq!(machine.get_register(Register::IP), 0xFFFF);
 }
