@@ -1,5 +1,5 @@
+use nvm::Machine;
 use nvm::register::Flag;
-use nvm::{Machine, machine};
 use nvm_test_utils::machine_test;
 
 #[test]
