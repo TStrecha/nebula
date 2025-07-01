@@ -26,6 +26,12 @@ pub fn machine_test(_args: TokenStream, input: TokenStream) -> TokenStream {
                     quote! {
                         machine.set_register(Register::#variant, #right);
                     }
+                } else if segments.len() == 2 && segments[0].ident == "Flag" {
+                    let variant = &segments[1].ident;
+
+                    quote! {
+                        machine.set_flag(Flag::#variant, #right);
+                    }
                 } else {
                     panic!("Invalid path: {}", expr_path.into_token_stream());
                 }

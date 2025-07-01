@@ -1,10 +1,14 @@
 bits 16
 
-MOV AX, 5
-MOV CX, 10
-ADD AX, CX
-PUSH AX
-MOV BX, 2
-POP CX
-MUL BX
-NOOP
+start:
+    MOV AX, 5         ; AX = 5
+    MOV BX, 3         ; BX = 3
+loop:
+    SUB AX, BX        ; AX -= BX
+    JZ end            ; pokud AX == 0 -> end
+    INC AX            ; AX++
+    JMP loop          ; opakuj
+end:
+    INC AX
+    MOV [0x1000], AX  ; ulož výsledek do paměti
+    NOP

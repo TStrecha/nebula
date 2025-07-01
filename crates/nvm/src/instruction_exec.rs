@@ -1,7 +1,7 @@
 use crate::instruction::{Instruction, MovMemOperand};
 use crate::Machine;
 use crate::modrm::Operand;
-use crate::register::Register;
+use crate::register::{Flag, Register};
 
 impl Machine {
 
@@ -40,47 +40,71 @@ impl Machine {
                 self.set_register(reg, self.memory.read_word(self.get_register(Register::SP) as usize));
                 self.set_register(Register::SP, self.get_register(Register::SP) + 2);
             },
-            Instruction::Add(dest, src) => {
-                self.apply_binary_op(dest, src, |a, b| a.wrapping_add(b));
+            Instruction::Add(dest, src, ..) => {
+                let (.., result) = self.apply_binary_op(dest, src, |a, b| a.wrapping_add(b));
+                self.update_zero_flag(result);
             }
             Instruction::AddAcc8(val) => {
-                self.set_register(Register::AL, self.get_register(Register::AL).wrapping_add(val as u16));
+                let result = self.get_register(Register::AL).wrapping_add(val as u16);
+                self.set_register(Register::AL, result);
+                self.update_zero_flag(result);
             }
             Instruction::AddAcc16(val) => {
-                self.set_register(Register::AX, self.get_register(Register::AX).wrapping_add(val));
+                let result = self.get_register(Register::AX).wrapping_add(val);
+                self.set_register(Register::AX, result);
+                self.update_zero_flag(result);
             }
-            Instruction::Sub(dest, src) => {
-                self.apply_binary_op(dest, src, |a, b| a.wrapping_sub(b));
+            Instruction::Sub(dest, src, ..) => {
+                let (.., result) = self.apply_binary_op(dest, src, |a, b| a.wrapping_sub(b));
+                self.update_zero_flag(result);
             }
             Instruction::SubAcc8(val) => {
-                self.set_register(Register::AL, self.get_register(Register::AL).wrapping_sub(val as u16));
+                let result = self.get_register(Register::AL).wrapping_sub(val as u16);
+                self.set_register(Register::AL, result);
+                self.update_zero_flag(result);
             }
             Instruction::SubAcc16(val) => {
-                self.set_register(Register::AX, self.get_register(Register::AX).wrapping_sub(val));
+                let result = self.get_register(Register::AX).wrapping_sub(val);
+                self.set_register(Register::AX, result);
+                self.update_zero_flag(result);
             }
             Instruction::Inc(reg) => {
-                self.set_register(reg, self.get_register(reg).wrapping_add(1));
+                let result = self.get_register(reg).wrapping_add(1);
+                self.set_register(reg, result);
+                self.update_zero_flag(result);
             }
             Instruction::Dec(reg) => {
-                self.set_register(reg, self.get_register(reg).wrapping_sub(1));
+                let result = self.get_register(reg).wrapping_sub(1);
+                self.set_register(reg, result);
+                self.update_zero_flag(result);
             }
             Instruction::And(dest, src) => {
-                self.apply_binary_op(dest, src, |a, b| a & b);
+                let (.., result) = self.apply_binary_op(dest, src, |a, b| a & b);
+                self.update_zero_flag(result);
             }
             Instruction::AndAcc8(val) => {
-                self.set_register(Register::AL, self.get_register(Register::AL) & val as u16);
+                let result = self.get_register(Register::AL) & val as u16;
+                self.set_register(Register::AL, result);
+                self.update_zero_flag(result);
             }
             Instruction::AndAcc16(val) => {
-                self.set_register(Register::AX, self.get_register(Register::AX) & val);
+                let result = self.get_register(Register::AX) & val;
+                self.set_register(Register::AX, result);
+                self.update_zero_flag(result);
             }
             Instruction::Or(dest, src) => {
-                self.apply_binary_op(dest, src, |a, b| a | b);
+                let (.., result) = self.apply_binary_op(dest, src, |a, b| a | b);
+                self.update_zero_flag(result);
             }
             Instruction::OrAcc8(val) => {
-                self.set_register(Register::AL, self.get_register(Register::AL) | val as u16);
+                let result = self.get_register(Register::AL) | val as u16;
+                self.set_register(Register::AL, result);
+                self.update_zero_flag(result);
             }
             Instruction::OrAcc16(val) => {
-                self.set_register(Register::AX, self.get_register(Register::AX) | val);
+                let result = self.get_register(Register::AX) | val;
+                self.set_register(Register::AX, result);
+                self.update_zero_flag(result);
             }
             Instruction::Mul8(mlt_src) => {
                 let multiplier = match mlt_src {
@@ -148,10 +172,34 @@ impl Machine {
                 self.set_register(Register::AX, quotient as u16);
                 self.set_register(Register::DX, remainder as u16);
             }
+            Instruction::JmpNear(offset) => {
+                let ip = self.get_register(Register::IP) as i16;
+                self.set_register(Register::IP, ip.wrapping_add(offset) as u16);
+            }
+            Instruction::JmpFar(segment, offset) => {
+                self.set_register(Register::CS, segment);
+                self.set_register(Register::IP, offset);
+            }
+            Instruction::Jz(offset) => {
+                if self.get_flag(Flag::ZERO) {
+                    let ip = self.get_register(Register::IP) as i16;
+                    self.set_register(Register::IP, ip.wrapping_add(offset as i16) as u16);
+                }
+            }
+            Instruction::Jnz(offset) => {
+                if !self.get_flag(Flag::ZERO) {
+                    let ip = self.get_register(Register::IP) as i16;
+                    self.set_register(Register::IP, ip.wrapping_add(offset as i16) as u16);
+                }
+            }
+            Instruction::JmpShort(offset) => {
+                let ip = self.get_register(Register::IP) as i16;
+                self.set_register(Register::IP, ip.wrapping_add(offset as i16) as u16);
+            }
         }
     }
 
-    fn apply_binary_op<F>(&mut self, dest: Operand, src: Operand, op: F)
+    fn apply_binary_op<F>(&mut self, dest: Operand, src: Operand, op: F) -> (u16, u16, u16)
     where
         F: Fn(u16, u16) -> u16,
     {
@@ -159,7 +207,10 @@ impl Machine {
             (Operand::Register(dest_reg), Operand::Register(src_reg)) => {
                 let lhs = self.get_register(dest_reg);
                 let rhs = self.get_register(src_reg);
-                self.set_register(dest_reg, op(lhs, rhs));
+                let result = op(lhs, rhs);
+                self.set_register(dest_reg, result);
+
+                (lhs, rhs, result)
             }
             (Operand::Register(dest_reg), Operand::Memory(mem_addr)) => {
                 let ptr = self.get_ptr_from_mem_address(mem_addr);
@@ -169,7 +220,10 @@ impl Machine {
                 } else {
                     self.memory.read_word(ptr)
                 };
+                let result = op(lhs, rhs);
                 self.set_register(dest_reg, op(lhs, rhs));
+
+                (lhs, rhs, result)
             }
             (Operand::Memory(mem_addr), Operand::Register(src_reg)) => {
                 let ptr = self.get_ptr_from_mem_address(mem_addr);
@@ -185,6 +239,8 @@ impl Machine {
                 } else {
                     self.memory.write_word(ptr, result);
                 }
+
+                (lhs, rhs, result)
             }
             (Operand::Memory(_), Operand::Memory(_)) => unreachable!(),
         }

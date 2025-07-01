@@ -27,6 +27,12 @@ pub enum Opcode {
     OR = 0x08, // 08 - 0B, OR r/m, r || OR r, r/m
     OR_ACC_8 = 0x0C, // OR AL, imm8
     OR_ACC_16 = 0x0D, // OR AX, imm16
+
+    JMP = 0xE9,
+    JMP_FAR = 0xEA,
+    JMP_SHORT = 0xEB,
+    JZ = 0x74,
+    JNZ = 0x75,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -48,10 +54,10 @@ pub enum Instruction {
     MovAccMem(MovMemOperand, MovMemOperand),
     Push(Register),
     Pop(Register),
-    Add(Operand, Operand),
+    Add(Operand, Operand, bool),
     AddAcc8(u8),
     AddAcc16(u16),
-    Sub(Operand, Operand),
+    Sub(Operand, Operand, bool),
     SubAcc8(u8),
     SubAcc16(u16),
     Inc(Register),
@@ -66,6 +72,11 @@ pub enum Instruction {
     Or(Operand, Operand),
     OrAcc8(u8),
     OrAcc16(u16),
+    JmpNear(i16),
+    JmpFar(u16, u16),
+    JmpShort(i8),
+    Jz(i8),
+    Jnz(i8),
 }
 
 impl Instruction {
@@ -118,8 +129,8 @@ impl Instruction {
                 Ok(Self::Pop(Register::from_register_code(opcode_byte & 0b00000111, false)?))
             }
             Opcode::ADD => {
-                let operands = decode_operands_from_mod_rm_opcode(opcode_byte, memory_slice)?;
-                Ok(Self::Add(operands.0, operands.1))
+                let (left, right, is_8bit) = decode_operands_from_mod_rm_opcode(opcode_byte, memory_slice)?;
+                Ok(Self::Add(left, right, is_8bit))
             }
             Opcode::ADD_ACC_8 => {
                 Ok(Self::AddAcc8(memory_slice[0]))
@@ -129,8 +140,8 @@ impl Instruction {
                 Ok(Self::AddAcc16(val))
             }
             Opcode::SUB => {
-                let operands = decode_operands_from_mod_rm_opcode(opcode_byte, memory_slice)?;
-                Ok(Self::Sub(operands.0, operands.1))
+                let (left, right, is_8bit) = decode_operands_from_mod_rm_opcode(opcode_byte, memory_slice)?;
+                Ok(Self::Sub(left, right, is_8bit))
             }
             Opcode::SUB_ACC_8 => {
                 Ok(Self::SubAcc8(memory_slice[0]))
@@ -185,18 +196,40 @@ impl Instruction {
                     Ok(Self::Mul16(operand))
                 }
             }
+            Opcode::JMP => {
+                let offset = (memory_slice[1] as i16) << 8 | memory_slice[0] as i16;
+                Ok(Self::JmpNear(offset))
+            }
+            Opcode::JMP_FAR => {
+                let offset = (memory_slice[1] as u16) << 8 | memory_slice[0] as u16;
+                let segment = (memory_slice[3] as u16) << 8 | memory_slice[2] as u16;
+                Ok(Self::JmpFar(segment, offset))
+            }
+            Opcode::JZ => {
+                let offset = memory_slice[0] as i8;
+                Ok(Instruction::Jz(offset))
+            }
+            Opcode::JNZ => {
+                let offset = memory_slice[0] as i8;
+                Ok(Instruction::Jnz(offset))
+            }
+            Opcode::JMP_SHORT => {
+                let offset = memory_slice[0] as i8;
+                Ok(Instruction::JmpShort(offset))
+            }
         }
     }
 
     pub fn get_instr_size(&self) -> u16 {
         match self {
             Self::Noop | Self::Push(_) | Self::Pop(_) | Self::Inc(_) | Self::Dec(_) => 1,
-            Self::MovImm8(..) | Self::AddAcc8(_) | Self::SubAcc8(_) | Self::AndAcc8(_) | Self::OrAcc8(_) => 2,
+            Self::MovImm8(..) | Self::AddAcc8(_) | Self::SubAcc8(_) | Self::AndAcc8(_) | Self::OrAcc8(_)
+            | Self::Jz(_) | Self::Jnz(_) | Self::JmpShort(_) => 2,
             Self::MovImm16(..) | Self::MovAccMem(_, _) | Self::AddAcc16(_) | Self::SubAcc16(_)
-            | Self::AndAcc16(_) | Self::OrAcc16(_) => 3,
+            | Self::AndAcc16(_) | Self::OrAcc16(_) | Self::JmpNear(_) => 3,
             Self::Mov(operand1, operand2)
-            | Self::Add(operand1, operand2)
-            | Self::Sub(operand1, operand2)
+            | Self::Add(operand1, operand2, ..)
+            | Self::Sub(operand1, operand2, ..)
             | Self::And(operand1, operand2)
             | Self::Or(operand1, operand2) => 2 +
                 if let Operand::Memory(mem_add) = operand1 {
@@ -215,6 +248,7 @@ impl Instruction {
                 } else {
                     0
                 },
+            Self::JmpFar(..) => 4,
         }
     }
 }
@@ -246,6 +280,11 @@ impl TryFrom<u8> for Opcode {
             x if x >= 0x08 && x <= 0x0B => Ok(Self::OR),
             x if x == Self::OR_ACC_8 as u8 => Ok(Self::OR_ACC_8),
             x if x == Self::OR_ACC_16 as u8 => Ok(Self::OR_ACC_16),
+            x if x == Self::JMP as u8 => Ok(Self::JMP),
+            x if x == Self::JMP_FAR as u8 => Ok(Self::JMP_FAR),
+            x if x == Self::JMP_SHORT as u8 => Ok(Self::JMP_SHORT),
+            x if x == Self::JZ as u8 => Ok(Self::JZ),
+            x if x == Self::JNZ as u8 => Ok(Self::JNZ),
             _ => Err(format!("Invalid opcode: {:#x}", value)),
         }
     }
