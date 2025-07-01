@@ -9,5 +9,6 @@ loop:
     INC AX            ; AX++
     JMP loop          ; opakuj
 end:
+    INC AX
     MOV [0x1000], AX  ; ulož výsledek do paměti
     NOP
