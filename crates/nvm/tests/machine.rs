@@ -1,11 +1,11 @@
+use nvm::instruction::Opcode;
+use nvm::modrm::MemAddress;
+use nvm::register::Register;
+use nvm::{Machine, memory};
+use nvm_test_utils::machine_test;
 use std::fs::File;
-use std::io::{BufReader};
+use std::io::BufReader;
 use std::path::PathBuf;
-use nvm::instruction::{Opcode};
-use nvm::Machine;
-use nvm::modrm::{MemAddress};
-use nvm::register::{Register};
-use nvm_test_utils::{machine_test};
 
 mod machine_instr;
 
@@ -52,6 +52,15 @@ fn test_load_byte_program() {
 }
 
 #[test]
+#[should_panic]
+fn test_load_large_program_bytes() {
+    let program = [0; memory::MEMORY_SIZE + 100];
+
+    let mut machine = Machine::default();
+    machine.load_program_bytes(&program);
+}
+
+#[test]
 fn test_step() {
     let mut machine = Machine::default();
     machine.load_program_bytes(&[Opcode::NOOP as u8]);
@@ -67,9 +76,8 @@ fn test_step_with_dynamic_instruction_size(mut machine: Machine) {
     // MOV CX, [BX + SI + 0x0C]
     // MOV CX, [BX + SI + 0xD0C]
     machine.load_program_bytes(&[
-        0x8B, 0b00001000,
-        0x8B, 0b01001000, 0x0C,
-        0x8B, 0b10001000, 0x0C, 0xD]);
+        0x8B, 0b00001000, 0x8B, 0b01001000, 0x0C, 0x8B, 0b10001000, 0x0C, 0xD,
+    ]);
 
     machine.step();
     assert_eq!(machine.get_register(Register::IP), 2);
@@ -279,3 +287,4 @@ fn test_noop_instruction() {
 
     assert_eq!(machine.get_register(Register::IP), 1);
 }
+
