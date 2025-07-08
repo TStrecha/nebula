@@ -101,3 +101,16 @@ fn test_ident_detection() {
     let mut cursor = Cursor::new("a123".to_string());
     assert_eq!(cursor.next_token(), Token::Ident("a123".to_string()));
 }
+
+#[test]
+#[should_panic(expected = "Invalid decimal number")]
+fn test_invalid_decimal_number_detection() {
+    let mut cursor = Cursor::new("123.12.1".to_string());
+    cursor.next_token();
+}
+
+#[test]
+fn test_only_whitespace_data() {
+    let mut cursor = Cursor::new("     \n  ".to_string());
+    assert_eq!(cursor.next_token(), Token::EOF);
+}

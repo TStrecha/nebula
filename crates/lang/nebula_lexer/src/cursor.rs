@@ -32,7 +32,7 @@ impl Cursor {
                     break;
                 }
             } else {
-                return Token::Semicolon;
+                return Token::EOF;
             }
         }
 
