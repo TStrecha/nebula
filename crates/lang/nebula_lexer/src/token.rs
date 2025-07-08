@@ -19,5 +19,5 @@ pub enum OperatorKind {
 pub enum LiteralKind {
     Number(u64),
     Decimal(f64),
-    StringLit(String),
+    StringLit { value: String, terminated: bool },
 }

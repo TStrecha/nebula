@@ -1,5 +1,5 @@
 [workspace]
-members = [ "crates/lang/nebula_lexer",
+members = [ 
     "crates/nvm",
     "crates/nvm-test-utils",
     "crates/runtime",

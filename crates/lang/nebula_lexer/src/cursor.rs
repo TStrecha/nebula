@@ -20,90 +20,163 @@ impl Cursor {
     }
 
     pub fn next_token(&mut self) -> Token {
-        if self.pos == self.len - 1 {
+        if self.pos == self.len {
             return Token::EOF;
         }
 
-        while tokenizer::is_whitespace(self.data.chars().nth(self.pos).unwrap()) {
-            self.pos = self.pos + 1;
-        }
-
-        let mut token_str = String::new();
-        let mut lit_kind = LitKind::None;
-
         loop {
-            let mut include_char = true;
-            let curr_char = self.data.chars().nth(self.pos).unwrap();
-
-            if tokenizer::is_whitespace(curr_char) && lit_kind != LitKind::String {
-                break;
-            }
-
-            if tokenizer::is_terminator(curr_char) && !token_str.is_empty() {
-                break;
-            }
-
-            if curr_char == '"' {
-                if lit_kind == LitKind::None {
-                    include_char = false;
-                    lit_kind = LitKind::String;
-                } else if lit_kind == LitKind::String {
-                    self.pos = self.pos + 1;
+            if let Some(ch) = self.peek() {
+                if tokenizer::is_whitespace(ch) {
+                    self.consume();
+                } else {
                     break;
                 }
-            }
-
-            if tokenizer::is_numeric(curr_char) && lit_kind == LitKind::None {
-                lit_kind = LitKind::Number;
             } else {
-                if curr_char == '.' {
-                    if lit_kind == LitKind::Number {
-                        lit_kind = LitKind::Decimal;
+                return Token::Semicolon;
+            }
+        }
+
+        let token_type = if let Some(first_char) = self.peek() {
+            Cursor::identify_token_type(first_char)
+        } else {
+            return Token::EOF;
+        };
+
+        let token = match token_type {
+            TokenType::StringLiteral => {
+                let mut literal_value = String::new();
+                let mut terminated = false;
+                self.consume();
+                loop {
+                    let ch = if let Some(ch) = self.peek() {
+                        ch
                     } else {
                         break;
+                    };
+
+                    if ch == '"' {
+                        terminated = true;
+                        self.consume();
+                        break;
                     }
-                } else if lit_kind == LitKind::Number {
-                    break;
+
+                    literal_value.push(ch);
+                    self.consume();
+                }
+
+                Token::Literal(LiteralKind::StringLit {
+                    value: literal_value,
+                    terminated,
+                })
+            }
+            TokenType::NumericLiteral => {
+                let mut literal_value = String::new();
+                let mut decimal = false;
+
+                loop {
+                    let ch = if let Some(ch) = self.peek() {
+                        ch
+                    } else {
+                        break;
+                    };
+
+                    if tokenizer::is_numeric(ch) {
+                        literal_value.push(ch);
+                        self.consume();
+                    } else {
+                        if ch == '_' {
+                            continue;
+                        }
+                        if ch == '.' {
+                            if decimal == false {
+                                decimal = true;
+                                literal_value.push(ch);
+                                self.consume();
+                            } else {
+                                panic!("Invalid decimal number");
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                if decimal {
+                    Token::Literal(LiteralKind::Decimal(literal_value.parse().unwrap()))
+                } else {
+                    Token::Literal(LiteralKind::Number(literal_value.parse().unwrap()))
                 }
             }
+            TokenType::Ident => {
+                let mut value = String::new();
 
-            if include_char {
-                token_str.push(self.data.chars().nth(self.pos).unwrap());
-            }
-            self.pos = self.pos + 1;
-        }
+                loop {
+                    let ch = if let Some(ch) = self.peek() {
+                        ch
+                    } else {
+                        break;
+                    };
 
-        if lit_kind != LitKind::None {
-            return match lit_kind {
-                LitKind::Number => Token::Literal(LiteralKind::Number(token_str.parse().unwrap())),
-                LitKind::Decimal => {
-                    Token::Literal(LiteralKind::Decimal(token_str.parse().unwrap()))
+                    if tokenizer::is_whitespace(ch) || tokenizer::is_terminator(ch) {
+                        break;
+                    }
+
+                    value.push(ch);
+                    self.consume();
                 }
-                LitKind::String => Token::Literal(LiteralKind::StringLit(token_str)),
-                LitKind::None => unreachable!(),
-            };
-        }
 
-        if tokenizer::is_keyword(&token_str) {
-            return Token::Keyword(token_str);
-        }
+                let token = if tokenizer::is_keyword(&value) {
+                    Token::Keyword(value)
+                } else {
+                    Token::Ident(value)
+                };
 
-        if tokenizer::is_operator(&token_str) {
-            return Token::Operator(OperatorKind::Equals);
-        }
+                return token;
+            }
+            TokenType::Operator => {
+                self.consume();
+                Token::Operator(OperatorKind::Equals)
+            }
+            TokenType::Semicolon => {
+                self.consume();
+                Token::Semicolon
+            }
+        };
 
-        if token_str == ";" {
-            return Token::Semicolon;
-        }
+        return token;
+    }
 
-        Token::Ident(token_str)
+    pub fn identify_token_type(ch: char) -> TokenType {
+        return match ch {
+            '"' => TokenType::StringLiteral,
+            ';' => TokenType::Semicolon,
+            x if tokenizer::is_numeric(x) => TokenType::NumericLiteral,
+            x if tokenizer::is_operator(&x.to_string()) => TokenType::Operator,
+            _ => TokenType::Ident,
+        };
+    }
+
+    pub fn peek(&self) -> Option<char> {
+        self.data.chars().nth(self.pos)
+    }
+
+    pub fn consume(&mut self) -> Option<char> {
+        let ch = self.peek();
+        self.step();
+
+        ch
+    }
+
+    pub fn step(&mut self) {
+        self.pos = self.pos + 1;
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum LitKind {
-    None,
-    Number,
-    Decimal,
-    String,
+#[derive(Debug)]
+pub enum TokenType {
+    StringLiteral,
+    NumericLiteral,
+    Ident,
+    Operator,
+    Semicolon,
 }
