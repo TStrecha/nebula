@@ -10,6 +10,7 @@ pub enum Token {
 
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum OperatorKind {
+    Assignment,
     Equals,
     Plus,
     Minus,

@@ -11,7 +11,7 @@ fn test_tokenize_number_var_declaration() {
 
     assert_eq!(tokens[0], Token::Keyword("var".to_string()));
     assert_eq!(tokens[1], Token::Ident("a".to_string()));
-    assert_eq!(tokens[2], Token::Operator(OperatorKind::Equals));
+    assert_eq!(tokens[2], Token::Operator(OperatorKind::Assignment));
     assert_eq!(tokens[3], Token::Literal(LiteralKind::Number(123)));
     assert_eq!(tokens[4], Token::Semicolon);
     assert_eq!(tokens[5], Token::EOF);
@@ -25,7 +25,7 @@ fn test_tokenize_string_var_declaration() {
 
     assert_eq!(tokens[0], Token::Keyword("var".to_string()));
     assert_eq!(tokens[1], Token::Ident("a".to_string()));
-    assert_eq!(tokens[2], Token::Operator(OperatorKind::Equals));
+    assert_eq!(tokens[2], Token::Operator(OperatorKind::Assignment));
     assert_eq!(
         tokens[3],
         Token::Literal(LiteralKind::StringLit {
@@ -42,7 +42,7 @@ fn test_tokenize_string_var_declaration() {
 
     assert_eq!(tokens[0], Token::Keyword("var".to_string()));
     assert_eq!(tokens[1], Token::Ident("a".to_string()));
-    assert_eq!(tokens[2], Token::Operator(OperatorKind::Equals));
+    assert_eq!(tokens[2], Token::Operator(OperatorKind::Assignment));
     assert_eq!(
         tokens[3],
         Token::Literal(LiteralKind::StringLit {
@@ -51,4 +51,16 @@ fn test_tokenize_string_var_declaration() {
         })
     );
     assert_eq!(tokens[4], Token::EOF);
+}
+
+#[test]
+fn test_tokenize_equals_statement() {
+    let tokens = tokenizer::tokenize("a  ==   b".to_string());
+
+    assert_eq!(tokens.len(), 4);
+
+    assert_eq!(tokens[0], Token::Ident("a".to_string()));
+    assert_eq!(tokens[1], Token::Operator(OperatorKind::Equals));
+    assert_eq!(tokens[2], Token::Ident("b".to_string()));
+    assert_eq!(tokens[3], Token::EOF);
 }

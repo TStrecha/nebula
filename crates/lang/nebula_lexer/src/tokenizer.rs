@@ -30,10 +30,10 @@ pub fn is_keyword(token_str: &str) -> bool {
     matches!(token_str, "var")
 }
 
-pub fn is_operator(token_str: &str) -> bool {
-    matches!(token_str, "=")
+pub fn is_operator(ch: char) -> bool {
+    matches!(ch, '=')
 }
 
-pub fn is_numeric(curr_char: char) -> bool {
-    curr_char.is_digit(10)
+pub fn is_numeric(ch: char) -> bool {
+    ch.is_digit(10)
 }

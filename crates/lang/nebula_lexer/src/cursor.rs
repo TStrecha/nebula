@@ -134,8 +134,29 @@ impl Cursor {
                 return token;
             }
             TokenType::Operator => {
-                self.consume();
-                Token::Operator(OperatorKind::Equals)
+                let mut value = String::new();
+
+                loop {
+                    let ch = if let Some(ch) = self.peek() {
+                        ch
+                    } else {
+                        break;
+                    };
+
+                    if !tokenizer::is_operator(ch) {
+                        break;
+                    }
+
+                    value.push(ch);
+                    self.consume();
+                }
+
+                println!("operator: {}", value);
+                match value.as_str() {
+                    "=" => Token::Operator(OperatorKind::Assignment),
+                    "==" => Token::Operator(OperatorKind::Equals),
+                    _ => panic!("Unsupported operator {}", value),
+                }
             }
             TokenType::Semicolon => {
                 self.consume();
@@ -151,7 +172,7 @@ impl Cursor {
             '"' => TokenType::StringLiteral,
             ';' => TokenType::Semicolon,
             x if tokenizer::is_numeric(x) => TokenType::NumericLiteral,
-            x if tokenizer::is_operator(&x.to_string()) => TokenType::Operator,
+            x if tokenizer::is_operator(x) => TokenType::Operator,
             _ => TokenType::Ident,
         };
     }

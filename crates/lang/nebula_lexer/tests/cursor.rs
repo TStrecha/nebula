@@ -93,6 +93,12 @@ fn test_keyword_detection() {
 #[test]
 fn test_operator_detection() {
     let mut cursor = Cursor::new("=".to_string());
+    assert_eq!(
+        cursor.next_token(),
+        Token::Operator(OperatorKind::Assignment)
+    );
+
+    let mut cursor = Cursor::new("==".to_string());
     assert_eq!(cursor.next_token(), Token::Operator(OperatorKind::Equals));
 }
 

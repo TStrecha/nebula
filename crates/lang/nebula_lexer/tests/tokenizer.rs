@@ -54,7 +54,7 @@ fn test_is_keyword() {
 
 #[test]
 fn test_is_operator() {
-    assert!(tokenizer::is_operator("="));
+    assert!(tokenizer::is_operator('='));
 }
 
 #[test]
