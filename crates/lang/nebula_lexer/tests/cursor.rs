@@ -103,6 +103,13 @@ fn test_operator_detection() {
 }
 
 #[test]
+#[should_panic(expected = "Unsupported operator ===")]
+fn test_operator_detection_unsupported_operator() {
+    let mut cursor = Cursor::new("===".to_string());
+    cursor.next_token();
+}
+
+#[test]
 fn test_ident_detection() {
     let mut cursor = Cursor::new("a123".to_string());
     assert_eq!(cursor.next_token(), Token::Ident("a123".to_string()));
