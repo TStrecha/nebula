@@ -1,6 +1,9 @@
 [workspace]
-members = [
-    "crates/nvm", "crates/nvm-test-utils",
-    "crates/runtime"
+members = [ 
+    "crates/nvm",
+    "crates/nvm-test-utils",
+    "crates/runtime",
+
+    "crates/lang/nebula_lexer",
 ]
 resolver = "3"
