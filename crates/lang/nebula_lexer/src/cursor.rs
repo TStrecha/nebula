@@ -85,6 +85,7 @@ impl Cursor {
                         self.consume();
                     } else {
                         if ch == '_' {
+                            self.consume();
                             continue;
                         }
                         if ch == '.' {
