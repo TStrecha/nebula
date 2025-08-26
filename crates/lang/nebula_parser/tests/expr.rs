@@ -63,3 +63,11 @@ fn test_parse_var_decl_expr_missing_operator() {
     let mut parser = Parser::new("var a abcd;");
     parser.parse_expr();
 }
+
+
+#[test]
+#[should_panic(expected = "Expected identifier, found Semicolon")]
+fn test_parse_var_decl_expr_missing_ident() {
+    let mut parser = Parser::new("var;");
+    parser.parse_expr();
+}

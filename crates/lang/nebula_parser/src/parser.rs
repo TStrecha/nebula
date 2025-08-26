@@ -33,7 +33,7 @@ impl<'t> Parser<'t> {
             return name;
         }
 
-        panic!("");
+        panic!("Expected identifier, found {:?}", token);
     }
 
     pub fn consume_operator(&mut self) -> &OperatorKind {
