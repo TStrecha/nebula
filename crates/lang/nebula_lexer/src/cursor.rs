@@ -4,14 +4,14 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Cursor {
+pub struct Cursor<'d> {
     pos: usize,
     len: usize,
-    data: String,
+    data: &'d str,
 }
 
-impl Cursor {
-    pub fn new(data: String) -> Self {
+impl<'d> Cursor<'d> {
+    pub fn new(data: &'d str) -> Self {
         Self {
             pos: 0,
             len: data.len(),
@@ -19,7 +19,7 @@ impl Cursor {
         }
     }
 
-    pub fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token<'d> {
         if self.pos == self.len {
             return Token::EOF;
         }
@@ -42,11 +42,12 @@ impl Cursor {
             return Token::EOF;
         };
 
+        let start_pos = self.pos;
         let token = match token_type {
             TokenType::StringLiteral => {
-                let mut literal_value = String::new();
                 let mut terminated = false;
                 self.consume();
+
                 loop {
                     let ch = if let Some(ch) = self.peek() {
                         ch
@@ -60,12 +61,14 @@ impl Cursor {
                         break;
                     }
 
-                    literal_value.push(ch);
                     self.consume();
                 }
 
+                let lit_value =
+                    &self.data[start_pos + 1..self.pos - if terminated { 1 } else { 0 }];
+
                 Token::Literal(LiteralKind::StringLit {
-                    value: literal_value,
+                    value: lit_value,
                     terminated,
                 })
             }
@@ -109,8 +112,6 @@ impl Cursor {
                 }
             }
             TokenType::Ident => {
-                let mut value = String::new();
-
                 loop {
                     let ch = if let Some(ch) = self.peek() {
                         ch
@@ -122,9 +123,10 @@ impl Cursor {
                         break;
                     }
 
-                    value.push(ch);
                     self.consume();
                 }
+
+                let value = &self.data[start_pos..self.pos];
 
                 let token = if tokenizer::is_keyword(&value) {
                     Token::Keyword(value)
@@ -152,7 +154,6 @@ impl Cursor {
                     self.consume();
                 }
 
-                println!("operator: {}", value);
                 match value.as_str() {
                     "=" => Token::Operator(OperatorKind::Assignment),
                     "==" => Token::Operator(OperatorKind::Equals),

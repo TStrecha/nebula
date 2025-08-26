@@ -1,14 +1,14 @@
-#[derive(Debug, PartialEq, PartialOrd)]
-pub enum Token {
-    Keyword(String),
-    Ident(String),
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub enum Token<'s> {
+    Keyword(&'s str),
+    Ident(&'s str),
     Operator(OperatorKind),
-    Literal(LiteralKind),
+    Literal(LiteralKind<'s>),
     Semicolon,
     EOF,
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum OperatorKind {
     Assignment,
     Equals,
@@ -16,9 +16,9 @@ pub enum OperatorKind {
     Minus,
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
-pub enum LiteralKind {
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub enum LiteralKind<'s> {
     Number(u64),
     Decimal(f64),
-    StringLit { value: String, terminated: bool },
+    StringLit { value: &'s str, terminated: bool },
 }
