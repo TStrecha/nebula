@@ -60,7 +60,7 @@ impl<'t> Parser<'t> {
         let token = self.consume();
 
         if *token != Token::Semicolon {
-            panic!("Expected semicolon: ;");
+            panic!("Expected semicolon, found {:?}", token);
         }
     }
 

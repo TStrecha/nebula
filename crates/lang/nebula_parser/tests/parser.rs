@@ -42,7 +42,7 @@ fn test_consume_semicolon() {
 #[should_panic(expected = "Expected semicolon, found Ident(\"a\")")]
 fn test_consume_semicolon_fail() {
     let mut parser = Parser::new("a");
-    parser.parse_expr();
+    parser.consume_semicolon();
 }
 
 #[test]

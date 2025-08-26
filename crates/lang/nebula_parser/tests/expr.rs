@@ -51,7 +51,7 @@ fn test_parse_var_decl_expr_wrong_operator() {
 }
 
 #[test]
-#[should_panic(expected = "Expected semicolon: ;")]
+#[should_panic(expected = "Expected semicolon, found EOF")]
 fn test_parse_var_decl_expr_missing_expression() {
     let mut parser = Parser::new("var a = abcd");
     parser.parse_expr();
