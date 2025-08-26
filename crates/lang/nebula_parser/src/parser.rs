@@ -43,7 +43,7 @@ impl<'t> Parser<'t> {
             return kind;
         }
 
-        panic!("");
+        panic!("Expected operator, found {:?}", token);
     }
 
     pub fn consume_lit(&mut self) -> &LiteralKind {
