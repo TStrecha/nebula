@@ -5,6 +5,6 @@ members = [
     "crates/runtime",
 
     "crates/lang/nebula_lexer",
-    "crates/lang/nebula_ast", "crates/lang/nebula_parser",
+    "crates/lang/nebula_ast", "crates/lang/nebula_parser", "crates/lang/nebula_ir", "crates/lang/nebula_ir_gen", "crates/nebulac", "crates/lang/nebula_codegen",
 ]
 resolver = "3"

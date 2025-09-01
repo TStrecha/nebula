@@ -1,0 +1,8 @@
+[package]
+name = "nebulac"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+nebula_parser = {path = "../lang/nebula_parser"}
+nebula_ir_gen = {path = "../lang/nebula_ir_gen"}
